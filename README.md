@@ -1,72 +1,94 @@
 # EDHtrack
-Single-file MTG / Commander match tracker. **GitHub Pages frontend + Supabase backend.**
+MTG / Commander match tracker. **GitHub Pages frontend + Supabase backend.**
 
-No build steps required. The app is a static HTML/JS page hosted for free on GitHub Pages, connecting to a free Supabase Postgres database. 
+No build steps required. Static HTML/JS on GitHub Pages, Supabase Postgres as database.
+
+---
+
+## Für Mitspieler (einfach loslegen)
+
+Öffne [https://stschoelzel.github.io/EDHtrack/](https://stschoelzel.github.io/EDHtrack/), klick auf **Login mit GitHub** — fertig. Supabase-Verbindung ist bereits eingebaut. Sobald du eingeloggt bist und der Admin dich freigeschaltet hat, kannst du Matches eintragen.
+
+Du brauchst kein eigenes Supabase-Konto, keinen Token, kein Setup.
+
+---
 
 ## Security Model
 
-**The Supabase Publishable Key is PUBLIC.**
-You will paste the Publishable Key and the Supabase URL into the Setup screen. It is saved in your browser's `localStorage` and will be sent with every request. **This is completely safe and by design.** 
+**Der Supabase Publishable Key ist bewusst öffentlich.**
+Er steckt direkt im Quellcode — das ist by design, wie eine Restauranttür: sie ist offen, aber an der Kasse wirst du trotzdem aufgehalten.
 
-Supabase uses **Row Level Security (RLS)** in Postgres.
-This means the Publishable Key alone gives an attacker **zero** ability to read or write data unless they are an authenticated user explicitly listed in the `allowed_users` table. Even if the key is extracted from your frontend, the RLS policies act as an unbreakable shield. 
+Schutz läuft komplett über **Row Level Security (RLS)** in Postgres:
 
-* The database knows who the user is via OAuth.
-* RLS checks if the user is in `allowed_users`.
-* If yes, they can read and write matches.
-* If no, they get access denied.
+* Die Datenbank weiß via OAuth wer du bist.
+* RLS prüft ob du in `allowed_users` stehst.
+* Ja → lesen und schreiben erlaubt. Nein → Access Denied.
 
-## Setup
+Der Key alleine gibt einem Angreifer **null** Möglichkeit, Daten zu lesen oder zu manipulieren.
 
+---
 
+## Setup (für Forker — eigene Instanz aufsetzen)
 
-Follow these steps to set up EDHtrack for yourself.
+> **Du willst EDHtrack für deine eigene Gruppe hosten?** Dann fork das Repo und folge diesen Schritten. Du bekommst deine eigene Datenbank, deine eigene Benutzerverwaltung, unabhängig vom Original.
 
-### 1. Fork this repo
-Fork this repository to your GitHub account. It can be public or private, since no secrets are stored in the code anymore.
+### 1. Repo forken
+Fork auf GitHub. Public oder private — kein Geheimnis liegt mehr im Code (außer dem Anon Key, der aber public-by-design ist).
 
-### 2. Create a Supabase Account
-Register for free at [supabase.com](https://supabase.com).
+### 2. Supabase-Projekt anlegen
+Gratis-Account auf [supabase.com](https://supabase.com). Neues Projekt erstellen, Region wählen, DB-Passwort speichern (nur für direkten DB-Zugriff nötig, nicht für die App).
 
-### 3. Create a New Project
-Create a new project in Supabase. Choose a region near you. **Save the database password** (you won't need it for the app, but you'll need it if you ever want to connect to the DB directly).
+### 3. Schema importieren
+Supabase Dashboard → **SQL Editor** → Inhalt von [`supabase/schema.sql`](supabase/schema.sql) einfügen → **Run**.
+Optional: [`supabase/seed.sql`](supabase/seed.sql) für Default-Spieltypen (EDH, Planechase, …).
 
-### 4. Import the Schema
-In the Supabase Dashboard, go to **SQL Editor**. 
-Open the `supabase/schema.sql` file from this repository, paste its contents into the SQL Editor, and click **Run**.
-(Optional) You can also run `supabase/seed.sql` to add default game types.
+### 4. GitHub OAuth App erstellen
+GitHub → Settings → Developer settings → **OAuth Apps** → **New OAuth App**:
 
-### 5. Create a GitHub OAuth App
-To allow users to log in with GitHub, you need an OAuth app:
-1. Go to GitHub → Settings → Developer settings → **OAuth Apps** → **New OAuth App**.
-2. **Application name**: `EDHtrack`
-3. **Homepage URL**: `https://<your-username>.github.io/<your-repo-name>/`
-4. **Authorization callback URL**: Copy this from Supabase (Dashboard → Authentication → Providers → GitHub → "Callback URL").
-5. Save and copy the **Client ID** and **Client Secret**.
+| Feld | Wert |
+|---|---|
+| Application name | `EDHtrack` |
+| Homepage URL | `https://<dein-username>.github.io/<repo-name>/` |
+| Authorization callback URL | Aus Supabase kopieren: Dashboard → Authentication → Providers → GitHub → "Callback URL" |
 
-### 6. Enable the GitHub Provider in Supabase
-In the Supabase Dashboard, go to **Authentication** → **Providers** → **GitHub**.
-Enable it, and paste the Client ID and Client Secret you got from GitHub. Click Save.
+Client ID + Client Secret notieren.
 
-### 7. Configure Site URL
-In Supabase Dashboard → **Authentication** → **URL Configuration**:
-Set the **Site URL** to your GitHub Pages URL: `https://<your-username>.github.io/<your-repo-name>/`
+### 5. GitHub-Provider in Supabase aktivieren
+Dashboard → **Authentication** → **Providers** → **GitHub** → aktivieren → Client ID + Secret eintragen → Save.
 
-### 8. Enable GitHub Pages
-In your GitHub Repo → **Settings** → **Pages**.
-Set **Source** to "Deploy from a branch", pick `main`, and click Save. 
-Wait a minute and open your live site URL.
+### 6. Site URL + Redirect URLs setzen
+Dashboard → **Authentication** → **URL Configuration**:
+- **Site URL** = `https://<dein-username>.github.io/<repo-name>/`
+- **Redirect URLs** — klick auf "Add URL" und trage **beide** ein:
+  - `https://<dein-username>.github.io/<repo-name>/tracker.html`
+  - `https://<dein-username>.github.io/<repo-name>/index.html`
 
-### 9. Complete App Setup
-1. Open the app on your phone or desktop.
-2. The **Setup Screen** will ask for your Supabase Project URL, your Publishable Key (find these in Supabase Dashboard → Settings → API), and your GitHub Username.
-3. Click Connect. The app will save the URL and Key locally and register you as the owner in the database.
-4. Click **Login with GitHub**. You will automatically be granted Admin rights!
+> Ohne diese Einträge schlägt der OAuth-Redirect fehl und du landest nach dem GitHub-Login auf einer Fehlerseite.
 
-### 10. Invite Players
-Once logged in, click the **Manage Users** button in the top bar.
-You can invite your friends using their GitHub usernames, Discord usernames, or Google emails.
-When they visit your URL and click "Login", they will instantly be whitelisted and can start submitting matches.
+### 7. DEFAULT_CONFIG in `js/supabase-client.js` anpassen
+Öffne `js/supabase-client.js` und trage deine eigenen Werte ein:
+
+```js
+const DEFAULT_CONFIG = {
+    url: "https://dein-projekt.supabase.co",   // Supabase → Settings → API → Project URL
+    key: "dein_anon_key",                       // Supabase → Settings → API → Anon / Public
+    owner: "dein-github-username",              // Dein GitHub-Login (wird automatisch Admin)
+};
+```
+
+Committen und pushen.
+
+### 8. GitHub Pages aktivieren
+Repo → **Settings** → **Pages** → Source: **Deploy from a branch** → `main`, `/ (root)` → Save.
+Nach ~1 Minute ist die Seite live unter `https://<dein-username>.github.io/<repo-name>/`.
+
+GitHub zeigt eine Warnung dass die Seite öffentlich erreichbar ist, auch bei privatem Repo. Das ist gewollt — der Schutz liegt in RLS, nicht im URL-Geheimnis.
+
+### 9. Einloggen & Admin werden
+Öffne deine Page-URL, klick **Login mit GitHub**. Da dein GitHub-Username in `DEFAULT_CONFIG.owner` steht, erkennt die Datenbank dich als Owner und setzt dich automatisch als Admin.
+
+### 10. Mitspieler einladen
+**Manage Users** im Topbar → GitHub-Username, Discord-Name oder E-Mail eintragen → eingeladen. Beim nächsten Login deines Mitspielers wird er automatisch freigeschaltet.
 
 ## Schema Reference
 

@@ -2,20 +2,41 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const LS_KEY = "edhtrack.config.v2";
 
+// ---------------------------------------------------------------------------
+// DEFAULT CONFIG
+// ---------------------------------------------------------------------------
+// Diese Werte zeigen auf das zentrale Supabase-Projekt von stschoelzel.
+// Neue Nutzer bekommen die App sofort vorkonfiguriert — kein Setup nötig.
+// Der Anon Key ist public-by-design (wie ein Restaurant-Türknauf):
+//   er öffnet die Verbindung, aber Row Level Security (RLS) entscheidet,
+//   wer Daten lesen oder schreiben darf. Ohne Eintrag in `allowed_users`
+//   kommt man nicht rein.
+//
+// TODO (für Forker): Wenn du EDHtrack für deine eigene Gruppe hostest,
+//   ersetze die drei Werte unten mit deiner eigenen Supabase-URL,
+//   deinem eigenen Anon Key und deinem GitHub-Nutzernamen.
+//   Anleitung: siehe README.md → Setup → Schritt 2–3.
+// ---------------------------------------------------------------------------
+const DEFAULT_CONFIG = {
+    url: "https://wfcwppbkuuwvwtueodtk.supabase.co", // Supabase Project URL
+    key: "sb_publishable_mduIOtE0VumkhxpkiYr1nw_Kdbe8PBi", // Anon/Publishable Key (public-by-design)
+    owner: "stschoelzel", // GitHub-Username des Repo-Owners (für Admin-Bootstrap)
+};
+
 export function loadConfig() {
     try {
         const raw = localStorage.getItem(LS_KEY);
         if (!raw) {
-            return { url: "", key: "", owner: "" };
+            return { ...DEFAULT_CONFIG };
         }
         const parsed = JSON.parse(raw);
         return {
-            url: String(parsed?.url ?? "").trim(),
-            key: String(parsed?.key ?? "").trim(),
-            owner: String(parsed?.owner ?? "").trim(),
+            url: String(parsed?.url ?? DEFAULT_CONFIG.url).trim(),
+            key: String(parsed?.key ?? DEFAULT_CONFIG.key).trim(),
+            owner: String(parsed?.owner ?? DEFAULT_CONFIG.owner).trim(),
         };
     } catch {
-        return { url: "", key: "", owner: "" };
+        return { ...DEFAULT_CONFIG };
     }
 }
 
