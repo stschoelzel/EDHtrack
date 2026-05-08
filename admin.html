@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>EDHtrack - Admin</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+    <div class="wrap">
+
+        <header class="brand">
+            <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
+            <div class="subtitle">Admin tools and access control.</div>
+        </header>
+
+        <section class="screen active">
+            <div class="topbar">
+                <span id="admin-who"></span>
+                <button id="back-to-main-btn" class="ghost">Back to Match Form</button>
+            </div>
+
+            <div class="panel" id="admin-tools-panel">
+                <label>Admin Tools</label>
+                <div class="admin-tools-grid">
+                    <button id="edit-decks-btn" class="ghost">Edit Decks</button>
+                    <button id="edit-players-btn" class="ghost">Edit Players</button>
+                    <button id="edit-game-types-btn" class="ghost">Edit Game Types</button>
+                    <button id="edit-win-conditions-btn" class="ghost">Edit Winning Conditions</button>
+                </div>
+            </div>
+
+            <div class="panel" id="screen-manage-users">
+                <label>Manage Users &amp; Setup</label>
+                <p class="muted">Invite users here. RLS still enforces access server-side.</p>
+                <div class="field">
+                    <select id="invite-provider">
+                        <option value="github">GitHub Username</option>
+                        <option value="discord">Discord Username</option>
+                        <option value="google">Google Email</option>
+                    </select>
+                </div>
+                <div class="field" style="margin-top:0.75rem">
+                    <input id="invite-identifier" type="text" placeholder="Username or Email" />
+                </div>
+                <div class="actions">
+                    <button id="invite-btn" class="primary">+ Add Invite</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <label>Pending Invites</label>
+                <div id="pending-list" class="muted">Loading...</div>
+            </div>
+
+            <div class="panel">
+                <label>Allowed Users</label>
+                <div id="allowed-list" class="muted">Loading...</div>
+            </div>
+        </section>
+
+    </div>
+
+    <script type="module">
+        import { checkSession, resolveAppUrl } from "./js/supabase-client.js";
+
+        const $ = (id) => document.getElementById(id);
+
+        const state = {
+            supabase: null,
+            session: null,
+            allowed: null,
+        };
+
+        function toast(msg, kind = "") {
+            const t = document.createElement("div");
+            t.className = "toast " + kind;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? "").replace(/[&<>\"']/g, c => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+            }[c]));
+        }
+
+        async function handleLogout() {
+            if (state.supabase) await state.supabase.auth.signOut();
+            window.location.replace(resolveAppUrl("index.html"));
+        }
+
+        async function loadManageUsers() {
+            const { data: inv } = await state.supabase.from('pending_invites').select('*').order('invited_at', { ascending: false });
+            const { data: allowed } = await state.supabase.from('allowed_users').select('*').order('added_at', { ascending: false });
+
+            const invDiv = $("pending-list");
+            invDiv.innerHTML = "";
+            if (inv && inv.length) {
+                inv.forEach(i => {
+                    const d = document.createElement("div");
+                    d.className = "list-item";
+                    d.innerHTML = `<span><b>${escapeHtml(i.provider)}:</b> ${escapeHtml(i.identifier)}</span> <button data-id="${i.id}" class="row-remove">Remove</button>`;
+                    invDiv.appendChild(d);
+                });
+                invDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
+                    const id = e.target.dataset.id;
+                    await state.supabase.from('pending_invites').delete().eq('id', id);
+                    loadManageUsers();
+                }));
+            } else {
+                invDiv.textContent = "No pending invites.";
+            }
+
+            const allDiv = $("allowed-list");
+            allDiv.innerHTML = "";
+            if (allowed && allowed.length) {
+                allowed.forEach(a => {
+                    const d = document.createElement("div");
+                    d.className = "list-item";
+                    d.innerHTML = `<span>${escapeHtml(a.display_name)} ${a.is_admin ? '(Admin)' : ''}</span>`;
+                    allDiv.appendChild(d);
+                });
+            } else {
+                allDiv.textContent = "No allowed users.";
+            }
+        }
+
+        async function addInvite() {
+            const provider = $("invite-provider").value;
+            const identifier = $("invite-identifier").value.trim();
+            if (!identifier) return toast("Identifier required", "fail");
+
+            const { error } = await state.supabase.from('pending_invites').insert([{ provider, identifier }]);
+            if (error) {
+                if (error.code === '23505') toast("Invite already exists", "fail");
+                else toast(error.message, "fail");
+            } else {
+                toast("Invited", "keep");
+                $("invite-identifier").value = "";
+                loadManageUsers();
+            }
+        }
+
+        async function boot() {
+            const context = await checkSession();
+            if (!context) return;
+            if (!context.allowed?.is_admin) {
+                window.location.replace(resolveAppUrl("tracker.html"));
+                return;
+            }
+
+            state.supabase = context.supabase;
+            state.session = context.session;
+            state.allowed = context.allowed;
+
+            $("admin-who").textContent = context.allowed.display_name + " (Admin)";
+
+            $("back-to-main-btn").addEventListener("click", () => {
+                window.location.href = resolveAppUrl("tracker.html");
+            });
+            $("edit-decks-btn").addEventListener("click", () => toast("Edit Decks coming soon", "keep"));
+            $("edit-players-btn").addEventListener("click", () => toast("Edit Players coming soon", "keep"));
+            $("edit-game-types-btn").addEventListener("click", () => toast("Edit Game Types coming soon", "keep"));
+            $("edit-win-conditions-btn").addEventListener("click", () => toast("Edit Winning Conditions coming soon", "keep"));
+            $("invite-btn").addEventListener("click", addInvite);
+
+            await loadManageUsers();
+        }
+
+        document.addEventListener("DOMContentLoaded", boot);
+    </script>
+</body>
+
+</html>

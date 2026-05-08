@@ -2,1135 +2,183 @@
 <html lang="en">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>EDHtrack</title>
-  <style>
-    @font-face {
-      font-family: "Resistance";
-      src: url("fonts/Resistance.woff2") format("woff2"),
-        url("fonts/Resistance.woff") format("woff");
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-
-    @font-face {
-      font-family: "Karrik";
-      src: url("fonts/Karrik-Regular.woff2") format("woff2");
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-
-    @font-face {
-      font-family: "Karrik";
-      src: url("fonts/Karrik-Italic.woff2") format("woff2");
-      font-weight: 400;
-      font-style: italic;
-      font-display: swap;
-    }
-
-    @font-face {
-      font-family: "Illinois Mono";
-      src: url("fonts/IllinoisMono-Regular.ttf") format("truetype");
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-
-    @font-face {
-      font-family: "Illinois Mono";
-      src: url("fonts/IllinoisMono-Medium.ttf") format("truetype");
-      font-weight: 500;
-      font-style: normal;
-      font-display: swap;
-    }
-
-    @font-face {
-      font-family: "Illinois Mono";
-      src: url("fonts/IllinoisMono-Bold.ttf") format("truetype");
-      font-weight: 700;
-      font-style: normal;
-      font-display: swap;
-    }
-
-    :root {
-      --keep: #89f0cb;
-      --fail: #fd6ed0;
-      --pending: #f6e05e;
-      --surface: #131313;
-      --surface-low: #1c1b1b;
-      --surface-high: #353335;
-      --surface-bright: #4a484a;
-      --foreground: #e8e6e3;
-      --foreground-muted: #9a9897;
-      --ghost-border: rgba(232, 230, 227, 0.15);
-      --display: "Resistance", ui-serif, Georgia, serif;
-      --body: "Karrik", system-ui, -apple-system, "Segoe UI", sans-serif;
-      --mono: "Illinois Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      background: var(--surface);
-      color: var(--foreground);
-      font-family: var(--body);
-      font-size: 16px;
-      line-height: 1.5;
-      -webkit-text-size-adjust: 100%;
-    }
-
-    body {
-      min-height: 100vh;
-      min-height: 100dvh;
-    }
-
-    a {
-      color: var(--keep);
-    }
-
-    .wrap {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 1.5rem 1.25rem 4rem;
-    }
-
-    header.brand {
-      padding: 2rem 0 1.5rem;
-      text-align: center;
-      border-bottom: 1px solid var(--ghost-border);
-      margin-bottom: 2rem;
-    }
-
-    .wordmark {
-      font-family: var(--display);
-      font-weight: 400;
-      font-size: clamp(3rem, 14vw, 6.5rem);
-      letter-spacing: 0.01em;
-      line-height: 0.95;
-      margin: 0;
-    }
-
-    .wm-edh {
-      color: var(--keep);
-      text-shadow: 0 0 40px rgba(137, 240, 203, 0.25);
-    }
-
-    .wm-track {
-      color: var(--fail);
-      text-shadow: 0 0 40px rgba(253, 110, 208, 0.25);
-    }
-
-    .subtitle {
-      margin-top: 0.75rem;
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--foreground-muted);
-    }
-
-    .screen {
-      display: none;
-    }
-
-    .screen.active {
-      display: block;
-    }
-
-    .panel {
-      background: var(--surface-low);
-      border: 1px solid var(--ghost-border);
-      padding: 1.25rem;
-      margin-bottom: 1rem;
-    }
-
-    label {
-      display: block;
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      font-weight: 500;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--foreground-muted);
-      margin-bottom: 0.5rem;
-    }
-
-    input[type="text"],
-    input[type="password"],
-    input[type="number"],
-    select {
-      width: 100%;
-      background: var(--surface);
-      color: var(--foreground);
-      border: 1px solid var(--ghost-border);
-      border-radius: 0;
-      padding: 0.875rem 0.75rem;
-      font-family: var(--body);
-      font-size: 1rem;
-      min-height: 48px;
-      outline: none;
-      appearance: none;
-      -webkit-appearance: none;
-    }
-
-    input:focus,
-    select:focus {
-      border-color: var(--keep);
-      box-shadow: 0 0 0 1px var(--keep);
-    }
-
-    button {
-      border-radius: 0;
-      border: 1px solid var(--ghost-border);
-      background: var(--surface-high);
-      color: var(--foreground);
-      font-family: var(--mono);
-      font-weight: 700;
-      font-size: 0.8rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      padding: 0.875rem 1.25rem;
-      min-height: 48px;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    button:hover {
-      background: var(--surface-bright);
-    }
-
-    button.primary {
-      background: var(--keep);
-      color: var(--surface);
-      border-color: var(--keep);
-      box-shadow: 0 0 40px rgba(137, 240, 203, 0.08);
-    }
-
-    button.primary:hover {
-      box-shadow: 0 0 60px rgba(137, 240, 203, 0.15);
-      background: var(--keep);
-    }
-
-    button.ghost {
-      background: transparent;
-    }
-
-    button.danger {
-      color: var(--fail);
-    }
-
-    button:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-bottom: 0.75rem;
-    }
-
-    @media (min-width: 640px) {
-      .row.player-row {
-        flex-direction: row;
-        align-items: stretch;
-      }
-
-      .row.player-row>.field {
-        flex: 1;
-      }
-
-      .row.player-row>.winner-cell {
-        flex: 0 0 auto;
-      }
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .player-row {
-      background: var(--surface);
-      border: 1px solid var(--ghost-border);
-      padding: 1rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .player-row .row-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-
-    .player-row .row-label {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--foreground-muted);
-    }
-
-    .player-row .row-remove {
-      background: transparent;
-      border: 1px solid var(--ghost-border);
-      color: var(--foreground-muted);
-      padding: 0.25rem 0.5rem;
-      min-height: 32px;
-      font-family: var(--mono);
-      font-size: 0.7rem;
-    }
-
-    .winner-cell {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-
-    .winner-toggle {
-      appearance: none;
-      -webkit-appearance: none;
-      width: 28px;
-      height: 28px;
-      min-width: 28px;
-      border: 2px solid var(--ghost-border);
-      border-radius: 50%;
-      background: var(--surface-low);
-      cursor: pointer;
-      position: relative;
-      margin: 0;
-    }
-
-    .winner-toggle:checked {
-      border-color: var(--keep);
-      background: var(--keep);
-      box-shadow: 0 0 20px rgba(137, 240, 203, 0.4);
-    }
-
-    .winner-cell label {
-      margin: 0;
-      cursor: pointer;
-    }
-
-    .draw-toggle {
-      appearance: none;
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      min-width: 16px;
-      border: 2px solid var(--ghost-border);
-      border-radius: 4px;
-      background: var(--surface-low);
-      cursor: pointer;
-      margin: 0;
-    }
-
-    .draw-toggle:checked {
-      border-color: var(--keep);
-      background: var(--keep);
-      box-shadow: 0 0 10px rgba(137, 240, 203, 0.4);
-    }
-
-    .actions {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      margin-top: 1.5rem;
-    }
-
-    .actions button {
-      flex: 1;
-      min-width: 140px;
-    }
-
-    .toast {
-      position: fixed;
-      left: 50%;
-      bottom: 1.5rem;
-      transform: translateX(-50%);
-      background: var(--surface-high);
-      border: 1px solid var(--ghost-border);
-      color: var(--foreground);
-      padding: 0.875rem 1.25rem;
-      font-family: var(--mono);
-      font-weight: 500;
-      font-size: 0.8rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      z-index: 9999;
-      max-width: 90vw;
-    }
-
-    .toast.keep {
-      border-color: var(--keep);
-      color: var(--keep);
-    }
-
-    .toast.fail {
-      border-color: var(--fail);
-      color: var(--fail);
-    }
-
-    .muted {
-      color: var(--foreground-muted);
-      font-size: 0.85rem;
-    }
-
-    .err {
-      color: var(--fail);
-      font-size: 0.85rem;
-      margin-top: 0.5rem;
-    }
-
-    code {
-      background: var(--surface-high);
-      padding: 0.1rem 0.4rem;
-      font-family: var(--mono);
-      font-size: 0.85em;
-    }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--foreground-muted);
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-
-    .topbar span.buttons {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .topbar button {
-      padding: 0.4rem 0.75rem;
-      min-height: 36px;
-      font-size: 0.7rem;
-    }
-
-    .add-row-btn {
-      width: 100%;
-      background: transparent;
-      border: 1px dashed var(--ghost-border);
-      color: var(--foreground-muted);
-      margin-bottom: 1rem;
-    }
-
-    .list-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem;
-      border-bottom: 1px solid var(--ghost-border);
-      align-items: center;
-    }
-
-    .list-item:last-child {
-      border-bottom: none;
-    }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>EDHtrack</title>
+    <link rel="stylesheet" href="css/style.css" />
 </head>
 
 <body>
-  <div class="wrap">
+    <div class="wrap">
+        <header class="brand">
+            <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
+            <div class="subtitle">Your simple DIY match log.</div>
+        </header>
 
-    <header class="brand">
-      <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
-      <div class="subtitle">Your simple DIY match log.</div>
-    </header>
+        <section id="screen-config" class="screen">
+            <div class="panel">
+                <label>Welcome</label>
+                <p class="muted">Connect your Supabase project once, then sign in with GitHub, Discord, or Google.</p>
+            </div>
 
-    <!-- Setup Screen -->
-    <section id="screen-config" class="screen">
-      <!-- Phase A -->
-      <div id="setup-phase-a" class="panel">
-        <label>Phase 1: App Connection</label>
-        <p class="muted">Enter your Supabase details to connect the app.</p>
-        <div class="field" style="margin-top:0.75rem">
-          <label for="cfg-url">Supabase Project URL</label>
-          <input id="cfg-url" type="text" autocomplete="off" spellcheck="false" />
-        </div>
-        <div class="field" style="margin-top:0.75rem">
-          <label for="cfg-key">Supabase Publishable Key</label>
-          <input id="cfg-key" type="text" autocomplete="off" spellcheck="false" />
-        </div>
-        <div class="field" style="margin-top:0.75rem">
-          <label for="cfg-owner">GitHub Username (Repo Owner)</label>
-          <input id="cfg-owner" type="text" autocomplete="off" spellcheck="false" />
-        </div>
-        <div id="cfg-err" class="err" style="display:none"></div>
-        <div class="actions">
-          <button id="cfg-save-btn" class="primary">Connect</button>
-        </div>
-      </div>
+            <div id="setup-phase-a" class="panel">
+                <label>Phase 1: App Connection</label>
+                <p class="muted">Enter your Supabase details to connect the app.</p>
+                <div class="field" style="margin-top:0.75rem">
+                    <label for="cfg-url">Supabase Project URL</label>
+                    <input id="cfg-url" type="text" autocomplete="off" spellcheck="false" />
+                </div>
+                <div class="field" style="margin-top:0.75rem">
+                    <label for="cfg-key">Supabase Publishable Key</label>
+                    <input id="cfg-key" type="text" autocomplete="off" spellcheck="false" />
+                </div>
+                <div class="field" style="margin-top:0.75rem">
+                    <label for="cfg-owner">GitHub Username (Repo Owner)</label>
+                    <input id="cfg-owner" type="text" autocomplete="off" spellcheck="false" />
+                </div>
+                <div id="cfg-err" class="err" style="display:none"></div>
+                <div class="actions">
+                    <button id="cfg-save-btn" class="primary">Connect</button>
+                </div>
+            </div>
 
-      <!-- Phase B -->
-      <div id="setup-phase-b" class="panel" style="display:none">
-        <label>Phase 2: Self Authentication</label>
-        <p class="muted">Connection successful! Now login to claim Admin rights. The database will automatically
-          recognize you as the Repo Owner.</p>
-        <div class="actions">
-          <button id="cfg-login-github-btn" class="primary">Login with GitHub</button>
-        </div>
-      </div>
-    </section>
+            <div id="setup-phase-b" class="panel" style="display:none">
+                <label>Phase 2: Self Authentication</label>
+                <p class="muted">Connection successful! Now login to claim Admin rights. The database will automatically
+                    recognize you as the Repo Owner.</p>
+                <div class="actions">
+                    <button id="cfg-login-github-btn" class="primary">Login with GitHub</button>
+                </div>
+            </div>
+        </section>
 
-    <!-- Login Screen -->
-    <section id="screen-login" class="screen">
-      <div class="panel">
-        <label>Sign In</label>
-        <p class="muted">Authenticate to submit matches.</p>
-        <div class="actions" style="flex-direction:column">
-          <button id="login-github-btn" class="primary">Login with GitHub</button>
-          <button id="login-discord-btn" class="primary"
-            style="background:#5865F2;border-color:#5865F2;color:white;">Login with Discord</button>
-          <button id="login-google-btn" class="primary"
-            style="background:#DB4437;border-color:#DB4437;color:white;">Login with Google</button>
-        </div>
-        <div class="actions" style="margin-top:1rem">
-          <button id="login-reset-cfg-btn" class="ghost danger">Reset Setup</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Not Allowed Screen -->
-    <section id="screen-not-allowed" class="screen">
-      <div class="panel">
-        <label>Access Denied</label>
-        <p class="muted">You are logged in, but you have not been invited to this tracker yet. Ask the Repo Owner to
-          whitelist you.</p>
-        <div class="actions">
-          <button id="not-allowed-logout-btn" class="primary">Logout</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Main form screen -->
-    <section id="screen-main" class="screen">
-      <div class="topbar">
-        <span id="who"></span>
-        <span class="buttons">
-          <button id="show-stats-btn" class="ghost" style="color:var(--keep)">Show Stats</button>
-          <button id="export-csv-btn" class="ghost" style="color:var(--pending)">Export CSV</button>
-          <button id="main-logout-btn" class="ghost" style="color:var(--fail)">Logout</button>
-        </span>
-      </div>
-
-      <div class="panel">
-        <label>Players &amp; Decks</label>
-        <div id="player-rows"></div>
-        <button id="add-player" class="add-row-btn">+ Add Player</button>
-      </div>
-
-      <div class="panel">
-        <div class="field">
-          <label for="game-type">Game Type</label>
-          <input id="game-type" type="text" list="dl-gametypes" />
-          <datalist id="dl-gametypes"></datalist>
-        </div>
-        <div class="field" style="margin-top:0.75rem">
-          <label for="turn">Turn (optional)</label>
-          <input id="turn" type="number" min="1" inputmode="numeric" />
-        </div>
-        <div class="field" style="margin-top:0.75rem">
-          <label for="win-cond">Winning Condition (optional)</label>
-          <input id="win-cond" type="text" list="dl-winconds" />
-          <datalist id="dl-winconds"></datalist>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="submit-btn" class="primary">Submit Match</button>
-        <button id="reset-btn" class="ghost">Reset</button>
-      </div>
-
-      <div id="admin-tools-actions" class="actions" style="display:none; margin-top:0.75rem;">
-        <button id="manage-users-btn" class="ghost" style="color:var(--pending)">Manage Users</button>
-        <button id="edit-decks-btn" class="ghost">Edit Decks</button>
-        <button id="edit-players-btn" class="ghost">Edit Players</button>
-        <button id="edit-game-types-btn" class="ghost">Edit Game Types</button>
-        <button id="edit-win-conditions-btn" class="ghost">Edit Winning Conditions</button>
-      </div>
-    </section>
-
-    <!-- Manage Users screen -->
-    <section id="screen-manage-users" class="screen">
-      <div class="topbar">
-        <span>Manage Users &amp; Setup</span>
-        <button id="back-to-main-btn" class="ghost">Back to Match Form</button>
-      </div>
-
-      <div class="panel">
-        <label>Invite New Player</label>
-        <div class="field">
-          <select id="invite-provider">
-            <option value="github">GitHub Username</option>
-            <option value="discord">Discord Username</option>
-            <option value="google">Google Email</option>
-          </select>
-        </div>
-        <div class="field" style="margin-top:0.75rem">
-          <input id="invite-identifier" type="text" placeholder="Username or Email" />
-        </div>
-        <div class="actions">
-          <button id="invite-btn" class="primary">+ Add Invite</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <label>Pending Invites</label>
-        <div id="pending-list" class="muted">Loading...</div>
-      </div>
-
-      <div class="panel">
-        <label>Allowed Users</label>
-        <div id="allowed-list" class="muted">Loading...</div>
-      </div>
-    </section>
-
-  </div>
-
-  <div id="confirm-popup"
-    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
-    <div
-      style="background:var(--surface); padding:2rem; border-radius:8px; border:1px solid var(--ghost-border); max-width:400px; width:90%;">
-      <h2 style="color:var(--fail); margin-top:0;">Missing Fields</h2>
-      <ul id="confirm-warnings" style="color:var(--pending); padding-left:1.5rem; margin-bottom:2rem;"></ul>
-      <div style="display:flex; justify-content:space-between; gap:1rem;">
-        <button id="confirm-ops" class="primary"
-          style="background:transparent; border-color:var(--fail); color:var(--fail);">Ops..</button>
-        <button id="confirm-fine" class="primary"
-          style="background:transparent; border-color:var(--keep); color:var(--keep);">Its fine</button>
-      </div>
+        <section id="screen-login" class="screen">
+            <div class="panel">
+                <label>Sign In</label>
+                <p class="muted">Authenticate to submit matches.</p>
+                <div class="actions" style="flex-direction:column">
+                    <button id="login-github-btn" class="primary">Login with GitHub</button>
+                    <button id="login-discord-btn" class="primary"
+                        style="background:#5865F2;border-color:#5865F2;color:white;">Login with Discord</button>
+                    <button id="login-google-btn" class="primary"
+                        style="background:#DB4437;border-color:#DB4437;color:white;">Login with Google</button>
+                </div>
+                <div class="actions" style="margin-top:1rem">
+                    <button id="login-reset-cfg-btn" class="ghost danger">Reset Setup</button>
+                </div>
+            </div>
+        </section>
     </div>
-  </div>
 
-  <datalist id="dl-players"></datalist>
-  <datalist id="dl-decks"></datalist>
+    <script type="module">
+        import {
+            createSupabaseClient,
+            getSessionContext,
+            loadConfig,
+            resolveAppUrl,
+            saveConfig,
+            clearConfig,
+        } from "./js/supabase-client.js";
 
-  <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+        const state = { supabase: null };
+        const $ = (id) => document.getElementById(id);
 
-    const LS_KEY = "edhtrack.config.v2";
-    function loadConfig() {
-      try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return { url: "", key: "", owner: "" };
-        return JSON.parse(raw);
-      } catch { return { url: "", key: "", owner: "" }; }
-    }
-    function saveConfig(c) { localStorage.setItem(LS_KEY, JSON.stringify(c)); }
-    function clearConfig() { localStorage.removeItem(LS_KEY); }
-
-    const MAX_PLAYERS = 8;
-    const INITIAL_ROWS = 4;
-
-    const state = {
-      supabase: null,
-      session: null,
-      isAdmin: false,
-      players: [],
-      decks: [],
-      gameTypes: [],
-      winConditions: [],
-      rows: [],
-      winnerIdx: 0,
-    };
-
-    const $ = (id) => document.getElementById(id);
-    function showScreen(id) {
-      for (const s of document.querySelectorAll(".screen")) s.classList.remove("active");
-      $(id).classList.add("active");
-    }
-    function toast(msg, kind = "") {
-      const t = document.createElement("div");
-      t.className = "toast " + kind;
-      t.textContent = msg;
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3500);
-    }
-    function escapeHtml(s) {
-      return String(s ?? "").replace(/[&<>"']/g, c => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      }[c]));
-    }
-
-    async function doLogin(provider) {
-      if (!state.supabase) return;
-      const { error } = await state.supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin + window.location.pathname }
-      });
-      if (error) toast(error.message, 'fail');
-    }
-
-    async function handleLogout() {
-      if (state.supabase) await state.supabase.auth.signOut();
-      window.location.reload();
-    }
-
-    async function resetSetup() {
-      if (confirm("Reset setup on this device? You will need to enter the Supabase URL and Key again.")) {
-        clearConfig();
-        await handleLogout();
-      }
-    }
-
-    async function boot() {
-      // Bind Setup screen
-      $("cfg-save-btn").addEventListener("click", async () => {
-        const url = $("cfg-url").value.trim();
-        const key = $("cfg-key").value.trim();
-        const owner = $("cfg-owner").value.trim();
-        if (!url || !key || !owner) return toast("All fields required", "fail");
-
-        $("cfg-save-btn").disabled = true;
-        $("cfg-save-btn").textContent = "Connecting...";
-        try {
-          const sb = createClient(url, key);
-          // Try to set app_config if null
-          const { error: updErr } = await sb.from('app_config')
-            .update({ owner_github_login: owner })
-            .eq('id', 1)
-            .is('owner_github_login', null);
-
-          const { data, error } = await sb.from('app_config').select('owner_github_login').single();
-          if (error) throw new Error("Database Error: " + error.message + " (Code: " + error.code + ")");
-
-          saveConfig({ url, key, owner: data.owner_github_login || owner });
-          state.supabase = sb;
-          $("setup-phase-a").style.display = "none";
-          $("setup-phase-b").style.display = "block";
-        } catch (e) {
-          toast(e.message, "fail");
-        } finally {
-          $("cfg-save-btn").disabled = false;
-          $("cfg-save-btn").textContent = "Connect";
+        function showScreen(id) {
+            for (const s of document.querySelectorAll(".screen")) s.classList.remove("active");
+            $(id).classList.add("active");
         }
-      });
 
-      $("cfg-login-github-btn").addEventListener("click", () => doLogin('github'));
-      $("login-github-btn").addEventListener("click", () => doLogin('github'));
-      $("login-discord-btn").addEventListener("click", () => doLogin('discord'));
-      $("login-google-btn").addEventListener("click", () => doLogin('google'));
-      $("main-logout-btn").addEventListener("click", handleLogout);
-      $("not-allowed-logout-btn").addEventListener("click", handleLogout);
-      $("login-reset-cfg-btn").addEventListener("click", resetSetup);
-
-      const cfg = loadConfig();
-      if (!cfg.url || !cfg.key) {
-        showScreen("screen-config");
-        return;
-      }
-
-      // Init Supabase
-      state.supabase = createClient(cfg.url, cfg.key);
-      const { data: { session } } = await state.supabase.auth.getSession();
-      state.session = session;
-
-      if (!session) {
-        showScreen("screen-login");
-        return;
-      }
-
-      // Check if allowed
-      let { data: allowed, error } = await state.supabase
-        .from('allowed_users')
-        .select('display_name, is_admin')
-        .eq('user_id', session.user.id)
-        .single();
-
-      // Fallback: Try to bootstrap if user is not in allowed_users (e.g., missed trigger)
-      if (error || !allowed) {
-        const { data: bootstrapSuccess } = await state.supabase.rpc('bootstrap_admin');
-        if (bootstrapSuccess) {
-          const { data: retryAllowed } = await state.supabase
-            .from('allowed_users')
-            .select('display_name, is_admin')
-            .eq('user_id', session.user.id)
-            .single();
-          allowed = retryAllowed;
+        function toast(msg, kind = "") {
+            const t = document.createElement("div");
+            t.className = "toast " + kind;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
         }
-      }
 
-      if (!allowed) {
-        showScreen("screen-not-allowed");
-        return;
-      }
-
-      state.isAdmin = allowed.is_admin;
-      $("who").textContent = allowed.display_name + (state.isAdmin ? " (Admin)" : "");
-      if (state.isAdmin) {
-        $("admin-tools-actions").style.display = "flex";
-      }
-
-      // Bind Main Screen
-      $("add-player").addEventListener("click", () => {
-        if (state.rows.length < MAX_PLAYERS) {
-          state.rows.push({ player: "", deck: "" });
-          renderPlayerRows();
-        }
-      });
-      $("reset-btn").addEventListener("click", resetForm);
-      $("submit-btn").addEventListener("click", submitMatch);
-      $("show-stats-btn").addEventListener("click", () => toast("Stats coming soon", "keep"));
-      $("export-csv-btn").addEventListener("click", exportCSV);
-
-      // Bind Manage Users Screen
-      $("manage-users-btn").addEventListener("click", () => {
-        showScreen("screen-manage-users");
-        loadManageUsers();
-      });
-      $("edit-decks-btn").addEventListener("click", () => toast("Edit Decks coming soon", "keep"));
-      $("edit-players-btn").addEventListener("click", () => toast("Edit Players coming soon", "keep"));
-      $("edit-game-types-btn").addEventListener("click", () => toast("Edit Game Types coming soon", "keep"));
-      $("edit-win-conditions-btn").addEventListener("click", () => toast("Edit Winning Conditions coming soon", "keep"));
-      $("back-to-main-btn").addEventListener("click", () => {
-        showScreen("screen-main");
-      });
-      $("invite-btn").addEventListener("click", addInvite);
-
-      // Datalist UX trick: clear value on focus to show all options, restore on blur if empty
-      document.addEventListener('focusin', e => {
-        if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {
-          e.target._oldVal = e.target.value;
-          e.target.value = '';
-        }
-      });
-      document.addEventListener('focusout', e => {
-        if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {
-          if (e.target.value === '' && e.target._oldVal) {
-            e.target.value = e.target._oldVal;
-          }
-        }
-      });
-
-      // Load Lookups
-      await loadLookups();
-      resetForm();
-      showScreen("screen-main");
-    }
-
-    async function loadLookups() {
-      const [p, d, g, w] = await Promise.all([
-        state.supabase.from('players').select('name'),
-        state.supabase.from('decks').select('name'),
-        state.supabase.from('game_types').select('name'),
-        state.supabase.from('win_conditions').select('name')
-      ]);
-      state.players = p.data ? p.data.map(x => x.name) : [];
-      state.decks = d.data ? d.data.map(x => x.name) : [];
-      state.gameTypes = g.data ? g.data.map(x => x.name) : [];
-      state.winConditions = w.data ? w.data.map(x => x.name) : [];
-      renderDatalists();
-    }
-
-    function fillDatalist(id, items) {
-      const dl = $(id);
-      dl.innerHTML = "";
-      for (const v of items) {
-        const o = document.createElement("option");
-        o.value = v;
-        dl.appendChild(o);
-      }
-    }
-    function renderDatalists() {
-      fillDatalist("dl-gametypes", state.gameTypes);
-      fillDatalist("dl-winconds", state.winConditions);
-    }
-
-    function updateRowDatalists() {
-      state.rows.forEach((r, idx) => {
-        const pList = document.getElementById(`dl-players-${idx}`);
-        if (pList) {
-          const otherPlayers = state.rows.filter((_, i) => i !== idx).map(x => x.player.trim());
-          pList.innerHTML = state.players.filter(p => !otherPlayers.includes(p)).map(p => `<option value="${escapeHtml(p)}"></option>`).join('');
-        }
-        const dList = document.getElementById(`dl-decks-${idx}`);
-        if (dList) {
-          const otherDecks = state.rows.filter((_, i) => i !== idx).map(x => x.deck.trim());
-          dList.innerHTML = state.decks.filter(d => !otherDecks.includes(d)).map(d => `<option value="${escapeHtml(d)}"></option>`).join('');
-        }
-      });
-    }
-
-    function renderPlayerRows() {
-      const wrap = $("player-rows");
-      wrap.innerHTML = "";
-      state.rows.forEach((r, idx) => {
-        const div = document.createElement("div");
-        div.className = "player-row";
-        const canRemove = state.rows.length > 2;
-        const isWinner = state.winners.includes(idx);
-
-        div.innerHTML = `
-      <div class="row-head">
-        <span class="row-label">Player ${idx + 1}</span>
-        ${canRemove ? `<button class="row-remove" data-rm="${idx}">Remove</button>` : ""}
-      </div>
-      <div class="row">
-        <div class="field">
-          <label>Player</label>
-          <input type="text" list="dl-players-${idx}" data-pidx="${idx}" data-k="player" value="${escapeHtml(r.player)}" />
-          <datalist id="dl-players-${idx}"></datalist>
-        </div>
-        <div class="field">
-          <label>Deck</label>
-          <input type="text" list="dl-decks-${idx}" data-pidx="${idx}" data-k="deck" value="${escapeHtml(r.deck)}" />
-          <datalist id="dl-decks-${idx}"></datalist>
-        </div>
-      </div>
-      <div class="winner-cell">
-        <input type="${state.isDraw ? 'checkbox' : 'radio'}" class="winner-toggle" name="winner" id="winner-${idx}" value="${idx}" ${isWinner ? "checked" : ""} />
-        <label for="winner-${idx}">Winner</label>
-        ${(isWinner || state.isDraw) ? `
-          <div style="margin-left: 1rem; display:flex; align-items:center; gap: 0.5rem; opacity: ${state.isDraw ? '1' : '0.5'};">
-            <input type="checkbox" id="draw-toggle-${idx}" class="draw-toggle" ${state.isDraw ? "checked" : ""} />
-            <label for="draw-toggle-${idx}" style="color:var(--foreground-muted);font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;">DRAW?</label>
-          </div>
-        ` : ""}
-      </div>
-    `;
-        wrap.appendChild(div);
-      });
-
-      wrap.querySelectorAll("input[data-pidx]").forEach(inp => {
-        inp.addEventListener("input", (e) => {
-          const i = +e.target.dataset.pidx;
-          const k = e.target.dataset.k;
-          state.rows[i][k] = e.target.value;
-          updateRowDatalists();
-        });
-      });
-      wrap.querySelectorAll("input[name='winner']").forEach(inp => {
-        inp.addEventListener("change", (e) => {
-          const val = +e.target.value;
-          if (state.isDraw) {
-            if (e.target.checked) {
-              if (!state.winners.includes(val)) state.winners.push(val);
-            } else {
-              state.winners = state.winners.filter(x => x !== val);
+        async function doLogin(provider) {
+            if (!state.supabase) {
+                toast("Configure Supabase first", "fail");
+                return;
             }
-          } else {
-            state.winners = [val];
-          }
-          renderPlayerRows();
-        });
-      });
-      wrap.querySelectorAll(".draw-toggle").forEach(inp => {
-        inp.addEventListener("change", (e) => {
-          state.isDraw = e.target.checked;
-          if (!state.isDraw && state.winners.length > 1) {
-            state.winners = [state.winners[0]]; // Revert to first selected
-          }
-          if (!state.isDraw && state.winners.length === 0) {
-            state.winners = [0];
-          }
-          renderPlayerRows();
-        });
-      });
-      wrap.querySelectorAll("button[data-rm]").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-          const i = +e.target.dataset.rm;
-          state.rows.splice(i, 1);
-          state.winners = state.winners.filter(x => x !== i).map(x => x > i ? x - 1 : x);
-          if (state.winners.length === 0) state.winners = [0];
-          renderPlayerRows();
-        });
-      });
-
-      $("add-player").disabled = state.rows.length >= MAX_PLAYERS;
-      updateRowDatalists();
-    }
-
-    function resetForm() {
-      state.rows = Array.from({ length: INITIAL_ROWS }, () => ({ player: "", deck: "" }));
-      state.winners = [0];
-      state.isDraw = false;
-      $("game-type").value = "";
-      $("turn").value = "";
-      $("win-cond").value = "";
-      renderPlayerRows();
-    }
-
-    async function submitMatch() {
-      const filled = state.rows.filter(r => r.player.trim() && r.deck.trim());
-      if (filled.length < 2) return toast("Need at least 2 players with player + deck.", "fail");
-
-      if (state.winners.length === 0) return toast("Select at least one winner.", "fail");
-      for (let idx of state.winners) {
-        const w = state.rows[idx];
-        if (!w || !w.player.trim()) return toast("Selected winner row needs a player.", "fail");
-      }
-
-      const gameType = $("game-type").value.trim();
-      const winCond = $("win-cond").value.trim();
-      const turn = parseInt($("turn").value.trim(), 10) || null;
-
-      $("submit-btn").disabled = true;
-      $("submit-btn").textContent = "Submitting...";
-
-      try {
-        // Insert new lookups (upsert)
-        const newP = filled.map(r => ({ name: r.player.trim() }));
-        const newD = filled.map(r => ({ name: r.deck.trim() }));
-        if (newP.length) await state.supabase.from('players').upsert(newP, { onConflict: 'name', ignoreDuplicates: true });
-        if (newD.length) await state.supabase.from('decks').upsert(newD, { onConflict: 'name', ignoreDuplicates: true });
-        await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
-        if (winCond) {
-          await state.supabase.from('win_conditions').upsert([{ name: winCond }], { onConflict: 'name', ignoreDuplicates: true });
+            const { error } = await state.supabase.auth.signInWithOAuth({
+                provider,
+                options: { redirectTo: resolveAppUrl("tracker.html") }
+            });
+            if (error) toast(error.message, "fail");
         }
 
-        // Insert Match
-        const participants = state.rows.map(r => {
-          if (!r.player.trim() && !r.deck.trim()) return null;
-          return {
-            player: r.player.trim(),
-            deck: r.deck.trim()
-          };
-        }).filter(Boolean);
+        async function handleLogout() {
+            if (state.supabase) await state.supabase.auth.signOut();
+            window.location.reload();
+        }
 
-        const winnerNames = state.winners.map(idx => state.rows[idx].player.trim()).join(", ");
+        async function resetSetup() {
+            if (confirm("Reset setup on this device? You will need to enter the Supabase URL and Key again.")) {
+                clearConfig();
+                await handleLogout();
+            }
+        }
 
-        const matchRow = {
-          participants,
-          winner: winnerNames,
-          turn: isNaN(turn) ? null : turn,
-          win_condition: winCond || null,
-          game_type: gameType,
-          is_draw: state.isDraw
-        };
+        async function boot() {
+            const cfg = loadConfig();
+            if (cfg.url && cfg.key && cfg.owner) {
+                $("cfg-url").value = cfg.url;
+                $("cfg-key").value = cfg.key;
+                $("cfg-owner").value = cfg.owner;
+                state.supabase = createSupabaseClient(cfg.url, cfg.key);
+                const context = await getSessionContext();
+                if (context) {
+                    window.location.replace(resolveAppUrl("tracker.html"));
+                    return;
+                }
+                $("setup-phase-a").style.display = "none";
+                $("setup-phase-b").style.display = "block";
+                showScreen("screen-login");
+            } else {
+                showScreen("screen-config");
+            }
 
-        const { error } = await state.supabase.from('matches').insert([matchRow]);
-        if (error) throw error;
+            $("cfg-save-btn").addEventListener("click", async () => {
+                const url = $("cfg-url").value.trim();
+                const key = $("cfg-key").value.trim();
+                const owner = $("cfg-owner").value.trim();
+                if (!url || !key || !owner) return toast("All fields required", "fail");
 
-        toast("Match saved!", "keep");
-        resetForm();
-        await loadLookups();
-      } catch (e) {
-        console.error(e);
-        toast(e.message || "Error saving match", "fail");
-      } finally {
-        $("submit-btn").disabled = false;
-        $("submit-btn").textContent = "Submit Match";
-      }
-    }
+                $("cfg-save-btn").disabled = true;
+                $("cfg-save-btn").textContent = "Connecting...";
+                try {
+                    const sb = createSupabaseClient(url, key);
+                    await sb.from('app_config')
+                        .update({ owner_github_login: owner })
+                        .eq('id', 1)
+                        .is('owner_github_login', null);
 
-    // Manage Users logic
-    async function loadManageUsers() {
-      if (!state.isAdmin) return;
-      const { data: inv } = await state.supabase.from('pending_invites').select('*').order('invited_at', { ascending: false });
-      const { data: allowed } = await state.supabase.from('allowed_users').select('*').order('added_at', { ascending: false });
+                    const { data, error } = await sb.from('app_config').select('owner_github_login').single();
+                    if (error) throw new Error("Database Error: " + error.message + " (Code: " + error.code + ")");
 
-      const invDiv = $("pending-list");
-      invDiv.innerHTML = "";
-      if (inv && inv.length) {
-        inv.forEach(i => {
-          const d = document.createElement("div");
-          d.className = "list-item";
-          d.innerHTML = `<span><b>${escapeHtml(i.provider)}:</b> ${escapeHtml(i.identifier)}</span> <button data-id="${i.id}" class="row-remove">Remove</button>`;
-          invDiv.appendChild(d);
-        });
-        invDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
-          const id = e.target.dataset.id;
-          await state.supabase.from('pending_invites').delete().eq('id', id);
-          loadManageUsers();
-        }));
-      } else {
-        invDiv.textContent = "No pending invites.";
-      }
+                    saveConfig({ url, key, owner: data.owner_github_login || owner });
+                    state.supabase = sb;
+                    $("setup-phase-a").style.display = "none";
+                    $("setup-phase-b").style.display = "block";
+                    showScreen("screen-login");
+                } catch (e) {
+                    toast(e.message, "fail");
+                } finally {
+                    $("cfg-save-btn").disabled = false;
+                    $("cfg-save-btn").textContent = "Connect";
+                }
+            });
 
-      const allDiv = $("allowed-list");
-      allDiv.innerHTML = "";
-      if (allowed && allowed.length) {
-        allowed.forEach(a => {
-          const d = document.createElement("div");
-          d.className = "list-item";
-          d.innerHTML = `<span>${escapeHtml(a.display_name)} ${a.is_admin ? '(Admin)' : ''}</span>`;
-          allDiv.appendChild(d);
-        });
-      } else {
-        allDiv.textContent = "No allowed users.";
-      }
-    }
+            $("cfg-login-github-btn").addEventListener("click", () => doLogin("github"));
+            $("login-github-btn").addEventListener("click", () => doLogin("github"));
+            $("login-discord-btn").addEventListener("click", () => doLogin("discord"));
+            $("login-google-btn").addEventListener("click", () => doLogin("google"));
+            $("login-reset-cfg-btn").addEventListener("click", resetSetup);
+        }
 
-    async function addInvite() {
-      const provider = $("invite-provider").value;
-      const identifier = $("invite-identifier").value.trim();
-      if (!identifier) return toast("Identifier required", "fail");
-
-      const { error } = await state.supabase.from('pending_invites').insert([{ provider, identifier }]);
-      if (error) {
-        if (error.code === '23505') toast("Invite already exists", "fail");
-        else toast(error.message, "fail");
-      } else {
-        toast("Invited", "keep");
-        $("invite-identifier").value = "";
-        loadManageUsers();
-      }
-    }
-
-    // Export CSV
-    function csvEscape(s) {
-      s = String(s ?? "");
-      if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-      return s;
-    }
-
-    async function exportCSV() {
-      toast("Exporting...", "keep");
-      const { data: matches, error } = await state.supabase.from('matches').select('*').order('played_at', { ascending: true });
-      if (error) return toast("Error fetching matches", "fail");
-      if (!matches || !matches.length) return toast("No matches found", "fail");
-
-      // Create CSV String
-      let csv = "ID,Date,Participants,Winner,Turn,WinCondition,GameType\n";
-      matches.forEach(m => {
-        // Convert participants array to a readable string or keep as JSON?
-        // Let's format participants as "P1 (D1) | P2 (D2)..."
-        const parts = m.participants.filter(p => p.player).map(p => `${p.player} (${p.deck})`).join(" | ");
-        const row = [
-          m.id,
-          m.played_at,
-          parts,
-          m.winner,
-          m.turn || "",
-          m.win_condition || "",
-          m.game_type
-        ];
-        csv += row.map(csvEscape).join(",") + "\n";
-      });
-
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `edhtrack_matches_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    // Start
-    document.addEventListener("DOMContentLoaded", boot);
-
-  </script>
+        document.addEventListener("DOMContentLoaded", boot);
+    </script>
 </body>
 
 </html>

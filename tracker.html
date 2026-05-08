@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>EDHtrack</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+    <div class="wrap">
+
+        <header class="brand">
+            <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
+            <div class="subtitle">Your simple DIY match log.</div>
+        </header>
+
+        <section id="screen-main" class="screen active">
+            <div class="topbar">
+                <span id="who"></span>
+                <span class="buttons">
+                    <button id="show-stats-btn" class="ghost" style="color:var(--keep)">Show Stats</button>
+                    <button id="export-csv-btn" class="ghost" style="color:var(--pending)">Export CSV</button>
+                    <button id="main-logout-btn" class="ghost" style="color:var(--fail)">Logout</button>
+                </span>
+            </div>
+
+            <div class="panel">
+                <label>Players &amp; Decks</label>
+                <div id="player-rows"></div>
+                <button id="add-player" class="add-row-btn">+ Add Player</button>
+            </div>
+
+            <div class="panel">
+                <div class="field">
+                    <label for="game-type">Game Type</label>
+                    <input id="game-type" type="text" list="dl-gametypes" />
+                    <datalist id="dl-gametypes"></datalist>
+                </div>
+                <div class="field" style="margin-top:0.75rem">
+                    <label for="turn">Turn (optional)</label>
+                    <input id="turn" type="number" min="1" inputmode="numeric" />
+                </div>
+                <div class="field" style="margin-top:0.75rem">
+                    <label for="win-cond">Winning Condition (optional)</label>
+                    <input id="win-cond" type="text" list="dl-winconds" />
+                    <datalist id="dl-winconds"></datalist>
+                </div>
+
+                <div id="admin-tools-actions" class="admin-tools-wrap">
+                    <label>Admin Tools</label>
+                    <div class="admin-tools-grid">
+                        <button id="manage-users-btn" class="ghost">Manage Users</button>
+                        <button id="edit-decks-btn" class="ghost">Edit Decks</button>
+                        <button id="edit-players-btn" class="ghost">Edit Players</button>
+                        <button id="edit-game-types-btn" class="ghost">Edit Game Types</button>
+                        <button id="edit-win-conditions-btn" class="ghost">Edit Winning Conditions</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="submit-btn" class="primary">Submit Match</button>
+                <button id="reset-btn" class="ghost">Reset</button>
+            </div>
+        </section>
+
+    </div>
+
+    <div id="confirm-popup"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+        <div
+            style="background:var(--surface); padding:2rem; border-radius:8px; border:1px solid var(--ghost-border); max-width:400px; width:90%;">
+            <h2 style="color:var(--fail); margin-top:0;">Missing Fields</h2>
+            <ul id="confirm-warnings" style="color:var(--pending); padding-left:1.5rem; margin-bottom:2rem;"></ul>
+            <div style="display:flex; justify-content:space-between; gap:1rem;">
+                <button id="confirm-ops" class="primary"
+                    style="background:transparent; border-color:var(--fail); color:var(--fail);">Ops..</button>
+                <button id="confirm-fine" class="primary"
+                    style="background:transparent; border-color:var(--keep); color:var(--keep);">Its fine</button>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="dl-players"></datalist>
+    <datalist id="dl-decks"></datalist>
+
+    <script type="module">
+        import { checkSession, resolveAppUrl } from "./js/supabase-client.js";
+
+        const MAX_PLAYERS = 8;
+        const INITIAL_ROWS = 4;
+
+        const state = {
+            supabase: null,
+            session: null,
+            isAdmin: false,
+            players: [],
+            decks: [],
+            gameTypes: [],
+            winConditions: [],
+            rows: [],
+            winners: [0],
+            isDraw: false,
+        };
+
+        const $ = (id) => document.getElementById(id);
+
+        function toast(msg, kind = "") {
+            const t = document.createElement("div");
+            t.className = "toast " + kind;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3500);
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? "").replace(/[&<>\"']/g, c => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+            }[c]));
+        }
+
+        async function handleLogout() {
+            if (state.supabase) await state.supabase.auth.signOut();
+            window.location.replace(resolveAppUrl("index.html"));
+        }
+
+        function goToAdminPage(hash = "") {
+            window.location.href = resolveAppUrl("admin.html") + hash;
+        }
+
+        function fillDatalist(id, items) {
+            const dl = $(id);
+            dl.innerHTML = "";
+            for (const v of items) {
+                const o = document.createElement("option");
+                o.value = v;
+                dl.appendChild(o);
+            }
+        }
+
+        function renderDatalists() {
+            fillDatalist("dl-gametypes", state.gameTypes);
+            fillDatalist("dl-winconds", state.winConditions);
+        }
+
+        function updateRowDatalists() {
+            state.rows.forEach((r, idx) => {
+                const pList = document.getElementById(`dl-players-${idx}`);
+                if (pList) {
+                    const otherPlayers = state.rows.filter((_, i) => i !== idx).map(x => x.player.trim());
+                    pList.innerHTML = state.players.filter(p => !otherPlayers.includes(p)).map(p => `<option value="${escapeHtml(p)}"></option>`).join("");
+                }
+                const dList = document.getElementById(`dl-decks-${idx}`);
+                if (dList) {
+                    const otherDecks = state.rows.filter((_, i) => i !== idx).map(x => x.deck.trim());
+                    dList.innerHTML = state.decks.filter(d => !otherDecks.includes(d)).map(d => `<option value="${escapeHtml(d)}"></option>`).join("");
+                }
+            });
+        }
+
+        function renderPlayerRows() {
+            const wrap = $("player-rows");
+            wrap.innerHTML = "";
+            state.rows.forEach((r, idx) => {
+                const div = document.createElement("div");
+                div.className = "player-row";
+                const canRemove = state.rows.length > 2;
+                const isWinner = state.winners.includes(idx);
+
+                div.innerHTML = `
+      <div class="row-head">
+        <span class="row-label">Player ${idx + 1}</span>
+        ${canRemove ? `<button class="row-remove" data-rm="${idx}">Remove</button>` : ""}
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Player</label>
+          <input type="text" list="dl-players-${idx}" data-pidx="${idx}" data-k="player" value="${escapeHtml(r.player)}" />
+          <datalist id="dl-players-${idx}"></datalist>
+        </div>
+        <div class="field">
+          <label>Deck</label>
+          <input type="text" list="dl-decks-${idx}" data-pidx="${idx}" data-k="deck" value="${escapeHtml(r.deck)}" />
+          <datalist id="dl-decks-${idx}"></datalist>
+        </div>
+      </div>
+      <div class="winner-cell">
+        <input type="${state.isDraw ? 'checkbox' : 'radio'}" class="winner-toggle" name="winner" id="winner-${idx}" value="${idx}" ${isWinner ? "checked" : ""} />
+        <label for="winner-${idx}">Winner</label>
+        ${(isWinner || state.isDraw) ? `
+          <div style="margin-left: 1rem; display:flex; align-items:center; gap: 0.5rem; opacity: ${state.isDraw ? '1' : '0.5'};">
+            <input type="checkbox" id="draw-toggle-${idx}" class="draw-toggle" ${state.isDraw ? "checked" : ""} />
+            <label for="draw-toggle-${idx}" style="color:var(--foreground-muted);font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;">DRAW?</label>
+          </div>
+        ` : ""}
+      </div>
+    `;
+                wrap.appendChild(div);
+            });
+
+            wrap.querySelectorAll("input[data-pidx]").forEach(inp => {
+                inp.addEventListener("input", (e) => {
+                    const i = +e.target.dataset.pidx;
+                    const k = e.target.dataset.k;
+                    state.rows[i][k] = e.target.value;
+                    updateRowDatalists();
+                });
+            });
+            wrap.querySelectorAll("input[name='winner']").forEach(inp => {
+                inp.addEventListener("change", (e) => {
+                    const val = +e.target.value;
+                    if (state.isDraw) {
+                        if (e.target.checked) {
+                            if (!state.winners.includes(val)) state.winners.push(val);
+                        } else {
+                            state.winners = state.winners.filter(x => x !== val);
+                        }
+                    } else {
+                        state.winners = [val];
+                    }
+                    renderPlayerRows();
+                });
+            });
+            wrap.querySelectorAll(".draw-toggle").forEach(inp => {
+                inp.addEventListener("change", (e) => {
+                    state.isDraw = e.target.checked;
+                    if (!state.isDraw && state.winners.length > 1) {
+                        state.winners = [state.winners[0]];
+                    }
+                    if (!state.isDraw && state.winners.length === 0) {
+                        state.winners = [0];
+                    }
+                    renderPlayerRows();
+                });
+            });
+            wrap.querySelectorAll("button[data-rm]").forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    const i = +e.target.dataset.rm;
+                    state.rows.splice(i, 1);
+                    state.winners = state.winners.filter(x => x !== i).map(x => x > i ? x - 1 : x);
+                    if (state.winners.length === 0) state.winners = [0];
+                    renderPlayerRows();
+                });
+            });
+
+            $("add-player").disabled = state.rows.length >= MAX_PLAYERS;
+            updateRowDatalists();
+        }
+
+        function resetForm() {
+            state.rows = Array.from({ length: INITIAL_ROWS }, () => ({ player: "", deck: "" }));
+            state.winners = [0];
+            state.isDraw = false;
+            $("game-type").value = "";
+            $("turn").value = "";
+            $("win-cond").value = "";
+            renderPlayerRows();
+        }
+
+        async function loadLookups() {
+            const [p, d, g, w] = await Promise.all([
+                state.supabase.from('players').select('name'),
+                state.supabase.from('decks').select('name'),
+                state.supabase.from('game_types').select('name'),
+                state.supabase.from('win_conditions').select('name')
+            ]);
+            state.players = p.data ? p.data.map(x => x.name) : [];
+            state.decks = d.data ? d.data.map(x => x.name) : [];
+            state.gameTypes = g.data ? g.data.map(x => x.name) : [];
+            state.winConditions = w.data ? w.data.map(x => x.name) : [];
+            renderDatalists();
+        }
+
+        async function submitMatch() {
+            const filled = state.rows.filter(r => r.player.trim() && r.deck.trim());
+            if (filled.length < 2) return toast("Need at least 2 players with player + deck.", "fail");
+
+            if (state.winners.length === 0) return toast("Select at least one winner.", "fail");
+            for (const idx of state.winners) {
+                const w = state.rows[idx];
+                if (!w || !w.player.trim()) return toast("Selected winner row needs a player.", "fail");
+            }
+
+            const gameType = $("game-type").value.trim();
+            const winCond = $("win-cond").value.trim();
+            const turn = parseInt($("turn").value.trim(), 10) || null;
+
+            $("submit-btn").disabled = true;
+            $("submit-btn").textContent = "Submitting...";
+
+            try {
+                const newP = filled.map(r => ({ name: r.player.trim() }));
+                const newD = filled.map(r => ({ name: r.deck.trim() }));
+                if (newP.length) await state.supabase.from('players').upsert(newP, { onConflict: 'name', ignoreDuplicates: true });
+                if (newD.length) await state.supabase.from('decks').upsert(newD, { onConflict: 'name', ignoreDuplicates: true });
+                await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
+                if (winCond) {
+                    await state.supabase.from('win_conditions').upsert([{ name: winCond }], { onConflict: 'name', ignoreDuplicates: true });
+                }
+
+                const participants = state.rows.map(r => {
+                    if (!r.player.trim() && !r.deck.trim()) return null;
+                    return {
+                        player: r.player.trim(),
+                        deck: r.deck.trim()
+                    };
+                }).filter(Boolean);
+
+                const winnerNames = state.winners.map(idx => state.rows[idx].player.trim()).join(", ");
+
+                const matchRow = {
+                    participants,
+                    winner: winnerNames,
+                    turn: isNaN(turn) ? null : turn,
+                    win_condition: winCond || null,
+                    game_type: gameType,
+                    is_draw: state.isDraw
+                };
+
+                const { error } = await state.supabase.from('matches').insert([matchRow]);
+                if (error) throw error;
+
+                toast("Match saved!", "keep");
+                resetForm();
+                await loadLookups();
+            } catch (e) {
+                console.error(e);
+                toast(e.message || "Error saving match", "fail");
+            } finally {
+                $("submit-btn").disabled = false;
+                $("submit-btn").textContent = "Submit Match";
+            }
+        }
+
+        function csvEscape(s) {
+            s = String(s ?? "");
+            if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        }
+
+        async function exportCSV() {
+            toast("Exporting...", "keep");
+            const { data: matches, error } = await state.supabase.from('matches').select('*').order('played_at', { ascending: true });
+            if (error) return toast("Error fetching matches", "fail");
+            if (!matches || !matches.length) return toast("No matches found", "fail");
+
+            let csv = "ID,Date,Participants,Winner,Turn,WinCondition,GameType\n";
+            matches.forEach(m => {
+                const parts = m.participants.filter(p => p.player).map(p => `${p.player} (${p.deck})`).join(" | ");
+                const row = [
+                    m.id,
+                    m.played_at,
+                    parts,
+                    m.winner,
+                    m.turn || "",
+                    m.win_condition || "",
+                    m.game_type
+                ];
+                csv += row.map(csvEscape).join(",") + "\n";
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `edhtrack_matches_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function boot() {
+            const context = await checkSession();
+            if (!context) return;
+
+            state.supabase = context.supabase;
+            state.session = context.session;
+            state.isAdmin = Boolean(context.allowed?.is_admin);
+
+            $("who").textContent = context.allowed.display_name + (state.isAdmin ? " (Admin)" : "");
+            if (state.isAdmin) {
+                $("admin-tools-actions").style.display = "block";
+            }
+
+            $("add-player").addEventListener("click", () => {
+                if (state.rows.length < MAX_PLAYERS) {
+                    state.rows.push({ player: "", deck: "" });
+                    renderPlayerRows();
+                }
+            });
+            $("reset-btn").addEventListener("click", resetForm);
+            $("submit-btn").addEventListener("click", submitMatch);
+            $("show-stats-btn").addEventListener("click", () => toast("Stats coming soon", "keep"));
+            $("export-csv-btn").addEventListener("click", exportCSV);
+            $("main-logout-btn").addEventListener("click", handleLogout);
+
+            if (state.isAdmin) {
+                $("manage-users-btn").addEventListener("click", () => goToAdminPage("#users"));
+                $("edit-decks-btn").addEventListener("click", () => goToAdminPage("#decks"));
+                $("edit-players-btn").addEventListener("click", () => goToAdminPage("#players"));
+                $("edit-game-types-btn").addEventListener("click", () => goToAdminPage("#game-types"));
+                $("edit-win-conditions-btn").addEventListener("click", () => goToAdminPage("#win-conditions"));
+            }
+
+            document.addEventListener('focusin', e => {
+                if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {
+                    e.target._oldVal = e.target.value;
+                    e.target.value = '';
+                }
+            });
+            document.addEventListener('focusout', e => {
+                if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {
+                    if (e.target.value === '' && e.target._oldVal) {
+                        e.target.value = e.target._oldVal;
+                    }
+                }
+            });
+
+            await loadLookups();
+            resetForm();
+        }
+
+        document.addEventListener("DOMContentLoaded", boot);
+    </script>
+</body>
+
+</html>
