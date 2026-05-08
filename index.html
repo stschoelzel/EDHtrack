@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>EDHtrack</title>
+<!--
+  EDHtrack — single-file MTG/Commander match tracker.
+
+  SECURITY MODEL:
+  - GitHub Personal Access Token + repo owner are NEVER in source.
+    They are entered once via the Setup screen and live in localStorage
+    on the user's device. Clearing browser storage requires re-entry.
+  - users.csv contains plaintext app-login credentials (low-stakes —
+    only gates the form, no sensitive data behind it).
+  - The PAT MUST be a fine-grained token scoped to this single repo
+    only. See README.md for token creation.
+-->
+<style>
+  @font-face {
+    font-family: "Resistance";
+    src: url("fonts/Resistance.woff2") format("woff2"),
+         url("fonts/Resistance.woff") format("woff");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Karrik";
+    src: url("fonts/Karrik-Regular.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Karrik";
+    src: url("fonts/Karrik-Italic.woff2") format("woff2");
+    font-weight: 400; font-style: italic; font-display: swap;
+  }
+  @font-face {
+    font-family: "Illinois Mono";
+    src: url("fonts/IllinoisMono-Regular.ttf") format("truetype");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Illinois Mono";
+    src: url("fonts/IllinoisMono-Medium.ttf") format("truetype");
+    font-weight: 500; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Illinois Mono";
+    src: url("fonts/IllinoisMono-Bold.ttf") format("truetype");
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+
+  :root {
+    --keep:#89f0cb;
+    --fail:#fd6ed0;
+    --pending:#f6e05e;
+    --surface:#131313;
+    --surface-low:#1c1b1b;
+    --surface-high:#353335;
+    --surface-bright:#4a484a;
+    --foreground:#e8e6e3;
+    --foreground-muted:#9a9897;
+    --ghost-border:rgba(232,230,227,0.15);
+    --display: "Resistance", ui-serif, Georgia, serif;
+    --body:    "Karrik", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:    "Illinois Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--surface);
+    color: var(--foreground);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  body { min-height: 100vh; min-height: 100dvh; }
+  a { color: var(--keep); }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  header.brand {
+    padding: 2rem 0 1.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--ghost-border);
+    margin-bottom: 2rem;
+  }
+  .wordmark {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(3rem, 14vw, 6.5rem);
+    letter-spacing: 0.01em;
+    line-height: 0.95;
+    margin: 0;
+  }
+  .wm-edh   { color: var(--keep); text-shadow: 0 0 40px rgba(137,240,203,0.25); }
+  .wm-track { color: var(--fail); text-shadow: 0 0 40px rgba(253,110,208,0.25); }
+  .subtitle {
+    margin-top: 0.75rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--foreground-muted);
+  }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .panel {
+    background: var(--surface-low);
+    border: 1px solid var(--ghost-border);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--foreground-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  input[type="text"], input[type="password"], input[type="number"], select {
+    width: 100%;
+    background: var(--surface);
+    color: var(--foreground);
+    border: 1px solid var(--ghost-border);
+    border-radius: 0;
+    padding: 0.875rem 0.75rem;
+    font-family: var(--body);
+    font-size: 1rem;
+    min-height: 48px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus {
+    border-color: var(--keep);
+    box-shadow: 0 0 0 1px var(--keep);
+  }
+
+  button {
+    border-radius: 0;
+    border: 1px solid var(--ghost-border);
+    background: var(--surface-high);
+    color: var(--foreground);
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.875rem 1.25rem;
+    min-height: 48px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:hover { background: var(--surface-bright); }
+  button.primary {
+    background: var(--keep);
+    color: var(--surface);
+    border-color: var(--keep);
+    box-shadow: 0 0 40px rgba(137,240,203,0.08);
+  }
+  button.primary:hover {
+    box-shadow: 0 0 60px rgba(137,240,203,0.15);
+    background: var(--keep);
+  }
+  button.ghost {
+    background: transparent;
+  }
+  button.danger { color: var(--fail); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    .row.player-row { flex-direction: row; align-items: stretch; }
+    .row.player-row > .field { flex: 1; }
+    .row.player-row > .winner-cell { flex: 0 0 auto; }
+  }
+
+  .field { display: flex; flex-direction: column; }
+
+  .player-row {
+    background: var(--surface);
+    border: 1px solid var(--ghost-border);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .player-row .row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .player-row .row-label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--foreground-muted);
+  }
+  .player-row .row-remove {
+    background: transparent;
+    border: 1px solid var(--ghost-border);
+    color: var(--foreground-muted);
+    padding: 0.25rem 0.5rem;
+    min-height: 32px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+  }
+
+  .winner-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .winner-cell input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 28px; height: 28px;
+    min-width: 28px;
+    border: 2px solid var(--ghost-border);
+    border-radius: 50%;
+    background: var(--surface-low);
+    cursor: pointer;
+    position: relative;
+    margin: 0;
+  }
+  .winner-cell input[type="radio"]:checked {
+    border-color: var(--keep);
+    background: var(--keep);
+    box-shadow: 0 0 20px rgba(137,240,203,0.4);
+  }
+  .winner-cell label {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+  .actions button { flex: 1; min-width: 140px; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    background: var(--surface-high);
+    border: 1px solid var(--ghost-border);
+    color: var(--foreground);
+    padding: 0.875rem 1.25rem;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    z-index: 9999;
+    max-width: 90vw;
+  }
+  .toast.keep { border-color: var(--keep); color: var(--keep); }
+  .toast.fail { border-color: var(--fail); color: var(--fail); }
+
+  .muted { color: var(--foreground-muted); font-size: 0.85rem; }
+  .err { color: var(--fail); font-size: 0.85rem; margin-top: 0.5rem; }
+  code {
+    background: var(--surface-high);
+    padding: 0.1rem 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.85em;
+  }
+  pre {
+    background: var(--surface-low);
+    border: 1px solid var(--ghost-border);
+    padding: 0.75rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--foreground-muted);
+  }
+  .topbar button { padding: 0.4rem 0.75rem; min-height: 36px; font-size: 0.7rem; }
+
+  .add-row-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--ghost-border);
+    color: var(--foreground-muted);
+    margin-bottom: 1rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="brand">
+    <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
+    <div class="subtitle">Commander Match Log</div>
+  </header>
+
+  <!-- Setup screen (first-run config; stored in localStorage, never in source) -->
+  <section id="screen-config" class="screen">
+    <div class="panel">
+      <label>One-time Setup</label>
+      <p class="muted">These values stay on this device (browser localStorage). They are never committed to the repo.</p>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="cfg-owner">GitHub Username (Repo Owner)</label>
+        <input id="cfg-owner" type="text" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="cfg-repo">Repo Name</label>
+        <input id="cfg-repo" type="text" autocomplete="off" spellcheck="false" value="EDHtrack" />
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="cfg-token">Fine-grained Personal Access Token</label>
+        <input id="cfg-token" type="password" autocomplete="off" spellcheck="false" />
+      </div>
+      <p class="muted" style="margin-top:0.75rem">
+        Token MUST be a <strong>fine-grained PAT</strong> scoped to <strong>this repo only</strong>,
+        with <code>Contents: Read and write</code> permission. See <code>README.md</code>.
+      </p>
+      <div id="cfg-err" class="err" style="display:none"></div>
+      <div class="actions">
+        <button id="cfg-save" class="primary">Save &amp; Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Login screen -->
+  <section id="screen-login" class="screen">
+    <div class="panel">
+      <div class="field">
+        <label for="login-user">Username</label>
+        <input id="login-user" type="text" autocomplete="username" />
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="login-pass">Password</label>
+        <input id="login-pass" type="password" autocomplete="current-password" />
+      </div>
+      <div id="login-err" class="err" style="display:none"></div>
+      <div class="actions">
+        <button id="login-btn" class="primary">Sign In</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main form screen -->
+  <section id="screen-main" class="screen">
+    <div class="topbar">
+      <span id="who"></span>
+      <span style="display:flex;gap:0.5rem">
+        <button id="reset-cfg-btn" class="ghost danger" title="Clear stored token + owner from this device">Reset Setup</button>
+        <button id="logout-btn" class="ghost">Logout</button>
+      </span>
+    </div>
+
+    <div class="panel">
+      <label>Players &amp; Decks</label>
+      <div id="player-rows"></div>
+      <button id="add-player" class="add-row-btn">+ Add Player</button>
+    </div>
+
+    <div class="panel">
+      <div class="field">
+        <label for="game-type">Game Type</label>
+        <input id="game-type" type="text" list="dl-gametypes" />
+        <datalist id="dl-gametypes"></datalist>
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="turn">Turn (optional)</label>
+        <input id="turn" type="number" min="1" inputmode="numeric" />
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="win-cond">Winning Condition (optional)</label>
+        <input id="win-cond" type="text" list="dl-winconds" />
+        <datalist id="dl-winconds"></datalist>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="submit-btn" class="primary">Submit Match</button>
+      <button id="reset-btn" class="ghost">Reset</button>
+    </div>
+  </section>
+
+</div>
+
+<datalist id="dl-players"></datalist>
+<datalist id="dl-decks"></datalist>
+
+<script type="module">
+/* ===== CONFIG (loaded from localStorage on this device only) =====
+   Token + owner are NEVER hardcoded. They are entered once via the
+   Setup screen and persisted in this browser. Clear storage to reset. */
+const BRANCH = "main";
+const LS_KEY = "edhtrack.config.v1";
+const cfg = loadConfig();
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return { token:"", owner:"", repo:"EDHtrack" };
+    const j = JSON.parse(raw);
+    return { token: j.token||"", owner: j.owner||"", repo: j.repo||"EDHtrack" };
+  } catch { return { token:"", owner:"", repo:"EDHtrack" }; }
+}
+function saveConfig(c) {
+  localStorage.setItem(LS_KEY, JSON.stringify(c));
+}
+function clearConfig() {
+  localStorage.removeItem(LS_KEY);
+}
+/* ============================================================ */
+
+const PLACEHOLDERS = {
+  players: ["Daddy","AlphaK","me","Herr Johannes"],
+  decks: ["Frodo auf Crack","Bello the bestest Boi","Wakanda Forever","Norin..."],
+  gameTypes: ["EDH","Pentagram","Archenemy","Planechase"],
+  winConditions: [],
+};
+const MAX_PLAYERS = 6;
+const INITIAL_ROWS = 4;
+
+const state = {
+  user: null,
+  players: [],
+  decks: [],
+  gameTypes: [],
+  winConditions: [],
+  rows: [],
+  winnerIdx: 0,
+  shas: {},
+};
+
+/* ----- DOM helpers ----- */
+const $ = (id) => document.getElementById(id);
+function showScreen(id) {
+  for (const s of document.querySelectorAll(".screen")) s.classList.remove("active");
+  $(id).classList.add("active");
+}
+function toast(msg, kind="") {
+  const t = document.createElement("div");
+  t.className = "toast " + kind;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+/* ----- Base64 (UTF-8 safe) ----- */
+const b64encode = (s) => btoa(unescape(encodeURIComponent(s)));
+const b64decode = (b) => decodeURIComponent(escape(atob(b.replace(/\s/g,""))));
+
+/* ----- GitHub API ----- */
+function ghHeaders() {
+  return {
+    "Accept": "application/vnd.github+json",
+    "Authorization": "Bearer " + cfg.token,
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+async function ghGet(path) {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(BRANCH)}`;
+  const res = await fetch(url, { headers: ghHeaders() });
+  if (res.status === 404) return { content: null, sha: null, missing: true };
+  if (!res.ok) throw new Error(`GET ${path}: ${res.status} ${res.statusText}`);
+  const j = await res.json();
+  return { content: b64decode(j.content), sha: j.sha, missing: false };
+}
+async function ghPut(path, content, sha, message) {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}`;
+  const body = {
+    message: message || `update ${path}`,
+    content: b64encode(content),
+    branch: BRANCH,
+  };
+  if (sha) body.sha = sha;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { ...ghHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`PUT ${path}: ${res.status} ${t}`);
+  }
+  const j = await res.json();
+  return j.content.sha;
+}
+
+/* ----- CSV ----- */
+function parseCsv(text) {
+  // Returns { header: [...], rows: [[...], ...] }
+  const rows = [];
+  let cur = [], field = "", inQ = false;
+  const t = text.replace(/\r\n?/g, "\n");
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (inQ) {
+      if (c === '"') {
+        if (t[i+1] === '"') { field += '"'; i++; }
+        else inQ = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ",") { cur.push(field); field = ""; }
+      else if (c === "\n") { cur.push(field); rows.push(cur); cur = []; field = ""; }
+      else field += c;
+    }
+  }
+  if (field.length || cur.length) { cur.push(field); rows.push(cur); }
+  // Drop trailing empty rows
+  while (rows.length && rows[rows.length-1].every(x => x === "")) rows.pop();
+  if (!rows.length) return { header: [], rows: [] };
+  return { header: rows[0].map(h => h.trim()), rows: rows.slice(1) };
+}
+function parseSingleColumn(text) {
+  const { rows } = parseCsv(text);
+  return rows.map(r => (r[0] || "").trim()).filter(Boolean);
+}
+function csvEscape(s) {
+  s = String(s ?? "");
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function csvLine(values) { return values.map(csvEscape).join(","); }
+
+/* ----- Auth ----- */
+async function tryLogin(user, pass) {
+  const r = await ghGet("users.csv");
+  if (r.missing) throw new Error("users.csv not found in repo");
+  const { rows } = parseCsv(r.content);
+  for (const row of rows) {
+    const u = (row[0] || "").trim();
+    const p = (row[1] || "").trim();
+    if (u === user && p === pass) return true;
+  }
+  return false;
+}
+
+/* ----- Data load ----- */
+async function loadAll() {
+  const files = ["players.csv","decks.csv","gametypes.csv","winconditions.csv","matches.csv"];
+  const results = await Promise.all(files.map(f => ghGet(f).catch(e => ({ error: e, missing: true }))));
+  const [p, d, g, w, m] = results;
+  state.shas = {};
+  state.players       = p.missing ? [...PLACEHOLDERS.players]      : parseSingleColumn(p.content);
+  state.decks         = d.missing ? [...PLACEHOLDERS.decks]        : parseSingleColumn(d.content);
+  state.gameTypes     = g.missing ? [...PLACEHOLDERS.gameTypes]    : parseSingleColumn(g.content);
+  state.winConditions = w.missing ? [...PLACEHOLDERS.winConditions]: parseSingleColumn(w.content);
+  if (!p.missing) state.shas["players.csv"]       = p.sha;
+  if (!d.missing) state.shas["decks.csv"]         = d.sha;
+  if (!g.missing) state.shas["gametypes.csv"]     = g.sha;
+  if (!w.missing) state.shas["winconditions.csv"] = w.sha;
+  if (!m.missing) state.shas["matches.csv"]       = m.sha;
+  state.matchesContent = m.missing ? null : m.content;
+  // ensure placeholders fall through to lists if empty
+  if (!state.players.length) state.players = [...PLACEHOLDERS.players];
+  if (!state.decks.length) state.decks = [...PLACEHOLDERS.decks];
+  if (!state.gameTypes.length) state.gameTypes = [...PLACEHOLDERS.gameTypes];
+}
+
+/* ----- Render ----- */
+function fillDatalist(id, items) {
+  const dl = $(id);
+  dl.innerHTML = "";
+  for (const v of items) {
+    const o = document.createElement("option");
+    o.value = v;
+    dl.appendChild(o);
+  }
+}
+function renderDatalists() {
+  fillDatalist("dl-players", state.players);
+  fillDatalist("dl-decks", state.decks);
+  fillDatalist("dl-gametypes", state.gameTypes);
+  fillDatalist("dl-winconds", state.winConditions);
+}
+function renderPlayerRows() {
+  const wrap = $("player-rows");
+  wrap.innerHTML = "";
+  state.rows.forEach((r, idx) => {
+    const div = document.createElement("div");
+    div.className = "player-row";
+    const canRemove = state.rows.length > 2;
+    div.innerHTML = `
+      <div class="row-head">
+        <span class="row-label">Player ${idx+1}</span>
+        ${canRemove ? `<button class="row-remove" data-rm="${idx}">Remove</button>` : ""}
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Player</label>
+          <input type="text" list="dl-players" data-pidx="${idx}" data-k="player" value="${escapeHtml(r.player)}" />
+        </div>
+        <div class="field">
+          <label>Deck</label>
+          <input type="text" list="dl-decks" data-pidx="${idx}" data-k="deck" value="${escapeHtml(r.deck)}" />
+        </div>
+      </div>
+      <div class="winner-cell">
+        <input type="radio" name="winner" id="winner-${idx}" value="${idx}" ${state.winnerIdx===idx?"checked":""} />
+        <label for="winner-${idx}">Winner</label>
+      </div>
+    `;
+    wrap.appendChild(div);
+  });
+
+  // bind input changes
+  wrap.querySelectorAll("input[data-pidx]").forEach(inp => {
+    inp.addEventListener("input", (e) => {
+      const i = +e.target.dataset.pidx;
+      const k = e.target.dataset.k;
+      state.rows[i][k] = e.target.value;
+    });
+  });
+  wrap.querySelectorAll("input[name='winner']").forEach(inp => {
+    inp.addEventListener("change", (e) => {
+      state.winnerIdx = +e.target.value;
+    });
+  });
+  wrap.querySelectorAll("button[data-rm]").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const i = +e.target.dataset.rm;
+      state.rows.splice(i, 1);
+      if (state.winnerIdx >= state.rows.length) state.winnerIdx = 0;
+      renderPlayerRows();
+    });
+  });
+
+  $("add-player").disabled = state.rows.length >= MAX_PLAYERS;
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+/* ----- Submit ----- */
+function buildMatchRow() {
+  const date = new Date().toISOString().slice(0,10);
+  const slots = [];
+  for (let i = 0; i < MAX_PLAYERS; i++) {
+    const r = state.rows[i];
+    slots.push(r ? r.player.trim() : "");
+    slots.push(r ? r.deck.trim() : "");
+  }
+  const winnerName = (state.rows[state.winnerIdx]?.player || "").trim();
+  const turn = $("turn").value.trim();
+  const winCond = $("win-cond").value.trim();
+  const gameType = $("game-type").value.trim();
+  return [date, ...slots, winnerName, turn, winCond, gameType];
+}
+function validate() {
+  const filled = state.rows.filter(r => r.player.trim() && r.deck.trim());
+  if (filled.length < 2) return "Need at least 2 players with player + deck.";
+  const winner = state.rows[state.winnerIdx];
+  if (!winner || !winner.player.trim()) return "Winner row needs a player.";
+  if (!$("game-type").value.trim()) return "Game type required.";
+  return null;
+}
+async function persistNewLookups() {
+  // For each lookup list, find new values and append to its CSV.
+  const tasks = [
+    { file: "players.csv",       list: state.players,       newVals: collectNew(state.rows.map(r=>r.player), state.players) },
+    { file: "decks.csv",         list: state.decks,         newVals: collectNew(state.rows.map(r=>r.deck), state.decks) },
+    { file: "gametypes.csv",     list: state.gameTypes,     newVals: collectNew([$("game-type").value], state.gameTypes) },
+    { file: "winconditions.csv", list: state.winConditions, newVals: collectNew([$("win-cond").value], state.winConditions) },
+  ];
+  for (const t of tasks) {
+    if (!t.newVals.length) continue;
+    let text;
+    let sha = state.shas[t.file];
+    if (sha) {
+      // refetch to get fresh sha + content (avoid stale)
+      const cur = await ghGet(t.file);
+      sha = cur.sha;
+      text = cur.content || "Name\n";
+    } else {
+      const cur = await ghGet(t.file);
+      if (!cur.missing) { sha = cur.sha; text = cur.content; state.shas[t.file] = sha; }
+      else { sha = null; text = "Name\n"; }
+    }
+    if (!text.endsWith("\n")) text += "\n";
+    for (const v of t.newVals) {
+      text += csvEscape(v) + "\n";
+      t.list.push(v);
+    }
+    const newSha = await ghPut(t.file, text, sha, `add to ${t.file}: ${t.newVals.join(", ")}`);
+    state.shas[t.file] = newSha;
+  }
+}
+function collectNew(candidates, existing) {
+  const set = new Set(existing.map(s => s.toLowerCase()));
+  const out = [];
+  const seen = new Set();
+  for (const c of candidates) {
+    const v = (c || "").trim();
+    if (!v) continue;
+    const k = v.toLowerCase();
+    if (set.has(k) || seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
+  }
+  return out;
+}
+async function appendMatch() {
+  const row = buildMatchRow();
+  const line = csvLine(row);
+  let cur = await ghGet("matches.csv");
+  let text, sha;
+  const header = csvLine(["Date","Player1","Deck1","Player2","Deck2","Player3","Deck3","Player4","Deck4","Player5","Deck5","Player6","Deck6","Winner","Turn","WinCondition","GameType"]);
+  if (cur.missing) {
+    text = header + "\n" + line + "\n";
+    sha = null;
+  } else {
+    text = cur.content;
+    if (!text.endsWith("\n")) text += "\n";
+    text += line + "\n";
+    sha = cur.sha;
+  }
+  await ghPut("matches.csv", text, sha, "add match");
+}
+
+async function onSubmit() {
+  const err = validate();
+  if (err) { toast(err, "fail"); return; }
+  const btn = $("submit-btn");
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = "Submitting...";
+  try {
+    await persistNewLookups();
+    await appendMatch();
+    renderDatalists();
+    toast("Match saved", "keep");
+    resetForm();
+  } catch (e) {
+    console.error(e);
+    toast("Error: " + e.message, "fail");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+function resetForm() {
+  state.rows = Array.from({length: INITIAL_ROWS}, () => ({ player:"", deck:"" }));
+  state.winnerIdx = 0;
+  $("game-type").value = "";
+  $("turn").value = "";
+  $("win-cond").value = "";
+  renderPlayerRows();
+}
+
+/* ----- Boot ----- */
+function init() {
+  bindSetup();
+  if (!cfg.token || !cfg.owner || !cfg.repo) {
+    $("cfg-owner").value = cfg.owner;
+    $("cfg-repo").value  = cfg.repo;
+    $("cfg-token").value = cfg.token;
+    showScreen("screen-config");
+    return;
+  }
+  showScreen("screen-login");
+
+  $("login-btn").addEventListener("click", async () => {
+    const u = $("login-user").value.trim();
+    const p = $("login-pass").value;
+    const errEl = $("login-err");
+    errEl.style.display = "none";
+    if (!u || !p) { errEl.textContent = "Enter username and password."; errEl.style.display = "block"; return; }
+    $("login-btn").disabled = true;
+    try {
+      const ok = await tryLogin(u, p);
+      if (!ok) { errEl.textContent = "Invalid credentials."; errEl.style.display = "block"; return; }
+      state.user = u;
+      $("who").textContent = "Signed in as " + u;
+      await loadAll();
+      resetForm();
+      renderDatalists();
+      showScreen("screen-main");
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.style.display = "block";
+    } finally {
+      $("login-btn").disabled = false;
+    }
+  });
+
+  $("login-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("login-btn").click(); });
+
+  $("add-player").addEventListener("click", () => {
+    if (state.rows.length >= MAX_PLAYERS) return;
+    state.rows.push({ player:"", deck:"" });
+    renderPlayerRows();
+  });
+  $("submit-btn").addEventListener("click", onSubmit);
+  $("reset-btn").addEventListener("click", resetForm);
+  $("logout-btn").addEventListener("click", () => {
+    state.user = null;
+    $("login-user").value = "";
+    $("login-pass").value = "";
+    showScreen("screen-login");
+  });
+  $("reset-cfg-btn").addEventListener("click", () => {
+    if (!confirm("Clear stored token and owner from this device? You will need to re-enter them.")) return;
+    clearConfig();
+    cfg.token = ""; cfg.owner = ""; cfg.repo = "EDHtrack";
+    state.user = null;
+    $("cfg-owner").value = "";
+    $("cfg-repo").value = "EDHtrack";
+    $("cfg-token").value = "";
+    showScreen("screen-config");
+  });
+}
+
+function bindSetup() {
+  $("cfg-save").addEventListener("click", async () => {
+    const owner = $("cfg-owner").value.trim();
+    const repo  = $("cfg-repo").value.trim() || "EDHtrack";
+    const token = $("cfg-token").value.trim();
+    const errEl = $("cfg-err");
+    errEl.style.display = "none";
+    if (!owner || !token) {
+      errEl.textContent = "Username and token required.";
+      errEl.style.display = "block";
+      return;
+    }
+    cfg.owner = owner; cfg.repo = repo; cfg.token = token;
+    // probe: try to fetch repo to validate creds + scope
+    $("cfg-save").disabled = true;
+    try {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: ghHeaders() });
+      if (res.status === 401) throw new Error("Token rejected (401). Check token value.");
+      if (res.status === 404) throw new Error("Repo not found or token has no access. Make sure the fine-grained PAT is scoped to this exact repo.");
+      if (!res.ok) throw new Error(`GitHub API: ${res.status} ${res.statusText}`);
+      saveConfig(cfg);
+      showScreen("screen-login");
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.style.display = "block";
+    } finally {
+      $("cfg-save").disabled = false;
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
