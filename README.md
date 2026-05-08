@@ -1,145 +1,126 @@
-# EDHtrack
+# EDHtrack v2
 
-Single-file MTG / Commander match tracker. No backend, no build. The repo itself is the database — match data lives in CSV files committed via the GitHub API.
+Single-file MTG / Commander match tracker. **GitHub Pages frontend + Supabase backend.**
 
-## Security model
+No build steps required. The app is a static HTML/JS page hosted for free on GitHub Pages, connecting to a free Supabase Postgres database. 
 
-Read this before setting up.
+## Why v2? (Migration from v1)
 
-- **The GitHub token and your username are NEVER committed to the repo.** They are entered once on the Setup screen and stored in your browser's `localStorage`. They live on your device only.
-- **Use a fine-grained Personal Access Token scoped to this single repo.** Not a classic token, not an org-wide token, not a token with `repo` scope across all your repos. Just this one repo.
-- **Repo-only token, repo-only token, repo-only token.** If the token leaks (e.g. someone gets your phone unlocked), the blast radius is limited to this one repo of match data — nothing else in your GitHub account.
-- **GitHub Pages publishes everything in the repo as static files** — including `users.csv`. Even if your repo is private, the Pages URL is public, and anyone who guesses or finds `https://<user>.github.io/<repo>/users.csv` can read the plaintext credentials. Treat the app login as a **"cheap bike lock"**: it stops casual passers-by, not a determined attacker. Use a unique password you don't reuse elsewhere.
+| Layer | v1 (Old) | v2 (New) |
+|---|---|---|
+| **Hosting** | GitHub Pages | GitHub Pages (unchanged) |
+| **Auth** | `users.csv` plaintext + GitHub PAT | Supabase GoTrue, GitHub/Discord/Google/Apple OAuth |
+| **Data** | CSV files via GitHub API | Supabase Postgres tables |
+| **Secrets** | Fine-grained PAT in `localStorage` | Supabase Anon Key in `localStorage` (Public by design) |
+
+**Problems with v1:**
+- `users.csv` contained plaintext passwords and was publicly accessible.
+- Users had to generate complex GitHub PATs just to use the app.
+- No real login flow, just a "bike lock".
+- Querying CSV data for stats was painful.
+
+**Benefits of v2:**
+- True OAuth instead of plaintext passwords.
+- No PATs required for other players. They just click "Login with GitHub" and the Admin whitelists them.
+- Row Level Security (RLS) handles permissions securely on the database side.
+- You can query stats directly in Supabase using SQL.
+- CSV Exports are still easily available via the UI or Supabase Dashboard.
+
+## Security Model
+
+**The Supabase Anon Key is PUBLIC.**
+You will paste the Anon Key and the Supabase URL into the Setup screen. It is saved in your browser's `localStorage` and will be sent with every request. **This is completely safe and by design.** 
+
+Supabase uses **Row Level Security (RLS)** in Postgres.
+This means the Anon Key alone gives an attacker **zero** ability to read or write data unless they are an authenticated user explicitly listed in the `allowed_users` table. Even if the key is extracted from your frontend, the RLS policies act as an unbreakable shield. 
+
+* The database knows who the user is via OAuth.
+* RLS checks if the user is in `allowed_users`.
+* If yes, they can read and write matches.
+* If no, they get access denied.
 
 ## Setup
 
+Follow these steps to set up EDHtrack for yourself.
+
 ### 1. Fork this repo
+Fork this repository to your GitHub account. It can be public or private, since no secrets are stored in the code anymore.
 
-**Fork on GitHub. Setting the fork to PRIVATE is recommended** — it hides your match history, deck list, and source code from random visitors browsing GitHub.
+### 2. Create a Supabase Account
+Register for free at [supabase.com](https://supabase.com).
 
-But know this: **a private repo does not make your Pages site private.** Once Pages is enabled (step 4), `https://<user>.github.io/<repo>/users.csv` is reachable by anyone who knows the URL. So:
+### 3. Create a New Project
+Create a new project in Supabase. Choose a region near you. **Save the database password** (you won't need it for the app, but you'll need it if you ever want to connect to the DB directly).
 
-*   **The Reality:** Plaintext passwords in a CSV are a security nightmare by professional standards.
-*   **Our Philosophy:** This is just match data and deck lists — nothing valuable to steal. The login is a minimal hurdle to keep random internet strangers from messing with your stats — it’s not meant to stop someone dedicated.
-*   **The Fix:** Use a unique password (don't reuse one from your email, bank, etc.). Keep the repo private so your URL isn't trivially discoverable.
+### 4. Import the Schema
+In the Supabase Dashboard, go to **SQL Editor**. 
+Open the `supabase/schema.sql` file from this repository, paste its contents into the SQL Editor, and click **Run**.
+(Optional) You can also run `supabase/seed.sql` to add default game types.
 
-### 2. Create a fine-grained Personal Access Token
+### 5. Create a GitHub OAuth App
+To allow users to log in with GitHub, you need an OAuth app:
+1. Go to GitHub → Settings → Developer settings → **OAuth Apps** → **New OAuth App**.
+2. **Application name**: `EDHtrack`
+3. **Homepage URL**: `https://<your-username>.github.io/<your-repo-name>/`
+4. **Authorization callback URL**: Copy this from Supabase (Dashboard → Authentication → Providers → GitHub → "Callback URL").
+5. Save and copy the **Client ID** and **Client Secret**.
 
-Go to GitHub → click your avatar → **Settings** → **Developer settings** (left side, very bottom) → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+### 6. Enable the GitHub Provider in Supabase
+In the Supabase Dashboard, go to **Authentication** → **Providers** → **GitHub**.
+Enable it, and paste the Client ID and Client Secret you got from GitHub. Click Save.
 
-The form has several sections — fill them as follows:
+### 7. Configure Site URL
+In Supabase Dashboard → **Authentication** → **URL Configuration**:
+Set the **Site URL** to your GitHub Pages URL: `https://<your-username>.github.io/<your-repo-name>/`
 
-#### 2a. Basics
+### 8. Enable GitHub Pages
+In your GitHub Repo → **Settings** → **Pages**.
+Set **Source** to "Deploy from a branch", pick `main`, and click Save. 
+Wait a minute and open your live site URL.
 
-| Field | Value |
+### 9. Complete App Setup
+1. Open the app on your phone or desktop.
+2. The **Setup Screen** will ask for your Supabase Project URL, your Anon Key (find these in Supabase Dashboard → Settings → API), and your GitHub Username.
+3. Click Connect. The app will save the URL and Key locally and register you as the owner in the database.
+4. Click **Login with GitHub**. You will automatically be granted Admin rights!
+
+### 10. Invite Players
+Once logged in, click the **Manage Users** button in the top bar.
+You can invite your friends using their GitHub usernames, Discord usernames, Google emails, or Apple emails. 
+When they visit your URL and click "Login", they will instantly be whitelisted and can start submitting matches.
+
+## Schema Reference
+
+All schema definitions are located in [`supabase/schema.sql`](supabase/schema.sql).
+
+| Table | Purpose |
 |---|---|
-| Token name | `edhtrack` (or whatever helps you remember) |
-| Expiration | up to you — shorter is safer (90 days is a good default) |
-| Description | optional |
-| Resource owner | **your account** (not an org) |
-
-#### 2b. Repository access
-
-This is where you pick **which** repos the token can touch.
-
-- Select **Only select repositories**.
-- A repository picker appears. Search for and select **only your `EDHtrack` fork**. Nothing else.
-- Do **NOT** pick "All repositories" or "Public repositories".
-
-#### 2c. Repository permissions
-
-This is where you pick **what** the token can do.
-
-Scroll down to the **Repository permissions** section and set:
-
-| Permission | Value |
-|---|---|
-| **Contents** | **Read and write** ← this is the one the app needs |
-| **Metadata** | **Read-only** ← already there, can't be turned off, this is normal |
-| All other permissions | leave at **No access** |
-
-> "Metadata: Read-only" is **mandatory** for any fine-grained token and is added automatically — that's expected, not a misconfiguration. It just lets GitHub identify which repo the token belongs to.
-
-#### 2d. Generate and copy
-
-Click **Generate token**. Copy the token (it starts with `github_pat_…`). You'll paste it into the app's Setup screen later. **GitHub only shows the token once** — if you lose it, generate a new one.
-
-> **Do NOT** create a classic token. Do NOT pick "All repositories". Do NOT grant any permission other than Contents (read/write) and the auto-included Metadata (read-only). Repeat: token must be scoped to this **single** repo, with **only** Contents read/write.
-
-### 3. Edit `users.csv`
-
-Set your app login. Plaintext, one row per user:
-```
-Username,Password
-admin,changeme
-```
-Commit and push.
-
-### 4. Enable GitHub Pages
-
-Go to your fork → **Settings** → **Pages** (left sidebar).
-
-1. **Build and deployment → Source**: select **Deploy from a branch** (the other option, "GitHub Actions", is not what we want — we ship a plain static `index.html`, no build step).
-2. **Branch**: select **`main`**, folder **`/ (root)`** → click **Save**.
-3. GitHub will show a warning that **your site will be publicly available on the internet, even if your repository is private**. This is expected — see the security model section above. Confirm.
-4. Wait ~1 minute. Refresh the Pages settings page. A box at the top will show:
-   > **Your site is live at https://&lt;your-username&gt;.github.io/EDHtrack/**
-
-That's your URL. Open it on phone, desktop, anywhere. Bookmark it.
-
-> If your repo is named something other than `EDHtrack`, the URL is `https://<your-username>.github.io/<repo-name>/`. Use that name when entering "Repo Name" on the app's Setup screen too.
-
-### 5. Open the URL on your phone
-
-- First load: **Setup screen** appears. Enter your GitHub username, repo name (`EDHtrack`), and the fine-grained PAT. The app validates the token by hitting the repo, then stores it locally on the device. Never committed.
-- Then: log in with the credentials from `users.csv`.
-- Done. Submit matches with your thumb.
-
-If you ever want to wipe the device's stored token: tap **Reset Setup** in the top bar, or clear browser storage for the page.
-
-## Gotchas
-
-- **Token expiration**: when the PAT expires, the app silently fails on submit (401 from GitHub). Generate a new token and tap **Reset Setup** in the app.
-- **Incognito / private browsing**: `localStorage` is wiped when the tab closes. You'll re-enter the token each session.
-- **Browser cache after updates**: after pushing a new `index.html`, GitHub Pages can serve the old version for up to a few minutes. Hard-reload (Ctrl+Shift+R / long-press reload on mobile) if something looks off.
-- **`users.csv` lives in git history forever**: if you commit a real password and later change it, the old one is still recoverable from `git log`. If a password leaks, rotate it AND assume the old one is permanently exposed in history.
-- **Multiple devices**: each device needs Setup once. Tokens are not synced — that's the whole point.
+| `app_config` | Stores the GitHub username of the Repo Owner. |
+| `allowed_users` | Whitelisted users who can use the app. |
+| `pending_invites` | Invitations created by the Admin. |
+| `matches` | The core match data. |
+| `players`, `decks` | Lookup tables for autocomplete. |
+| `game_types` | E.g., EDH, Planechase, Pentagram. |
+| `win_conditions` | E.g., Combat Damage, Commander Damage. |
 
 ## How it works
 
-- All data is stored as CSV files in this repo.
-- The app reads/writes them via the GitHub Contents API: load → base64-decode → parse, then encode → PUT with previous SHA.
-- New player names, deck names, game types, and winning conditions typed into the form are appended to their lookup CSVs automatically and become dropdown options next time.
-- Branch is hardcoded to `main`.
+- **OAuth Flow**: The app uses Supabase GoTrue for authentication. When you click "Login", Supabase redirects you to the provider, then back to the app, establishing a secure session.
+- **Admin Bootstrap**: The first time the app connects to the database, it saves the Repo Owner's GitHub username in `app_config`. A Postgres trigger automatically grants `is_admin = true` to the first user who logs in matching that username.
+- **Dynamic Learning**: When a user submits a match with a new Deck or Player name, the app uses an `upsert` query to dynamically add it to the lookup tables, keeping autocomplete lists up-to-date.
+- **RLS Policies**: Every read and write to the data tables is validated by the database. If you aren't in `allowed_users`, the Postgres database rejects your query instantly.
 
-## Files
+## Gotchas
 
-| File | Purpose |
-|---|---|
-| `index.html` | The entire app |
-| `matches.csv` | Match history (append-only) |
-| `players.csv` | Known player names |
-| `decks.csv` | Known deck names |
-| `gametypes.csv` | Known game types |
-| `winconditions.csv` | Known winning conditions |
-| `users.csv` | App-login credentials (plaintext, low-priority) |
+- **Supabase Free Tier**: Free tier projects are paused after 1 week of zero activity. You will need to log into the Supabase Dashboard to unpause it if you haven't played Magic in a while.
+- **OAuth Redirects**: If your GitHub Pages URL changes, you MUST update the Site URL in the Supabase Dashboard, or login will fail.
+- **Anon Key**: It is public. Do not panic if you see it in your browser console.
 
-## `matches.csv` schema
+## If something goes wrong
 
-```
-Date,Player1,Deck1,Player2,Deck2,Player3,Deck3,Player4,Deck4,Player5,Deck5,Player6,Deck6,Winner,Turn,WinCondition,GameType
-```
-
-Up to 6 players per match. Empty slots for shorter games. `Winner` is the player name (not index).
-
-## If a token leaks
-
-GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → **Revoke**. Generate a new one, tap **Reset Setup** in the app, and paste the new token. 
-
-Because the token is repo-scoped, the damage is strictly bounded. Here is the **Worst Case Scenario**:
-
-*   **Data Corruption:** Someone could steal, delete, or mess with your `matches.csv`. Since it's just match data—**so what?** It’s annoying, but not a life-altering event.
-*   **Page Hijacking:** Since the token has write-access, an attacker could replace `index.html` with a malicious version. If your friends use the site, the hijacked page could try to phish their app-passwords or worse...
-*   **Your Account Stays Safe:** This is the most important part. Because you used a **fine-grained token**, the attacker has **ZERO access** to your other repositories, your private emails, your billing info, or your account settings. 
-
-The "blast radius" is limited to your garden shed (this repo), while your main house (your GitHub account) remains locked and secure.
+- **Compromised Auth Provider**: If you accidentally leak your GitHub OAuth Client Secret, rotate it in GitHub immediately, then update it in the Supabase Dashboard.
+- **Lockout**: If you somehow lose Admin rights, you can manually fix it. Go to the Supabase SQL Editor and run:
+  ```sql
+  update allowed_users set is_admin = true where display_name = 'your_username';
+  ```
+- **Clearing local config**: Tap "Reset Setup" in the app or clear your browser's site data to wipe the stored Supabase URL and Key from the device.
