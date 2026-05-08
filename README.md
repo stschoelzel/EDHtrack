@@ -65,7 +65,7 @@ Wait a minute and open your live site URL.
 
 ### 10. Invite Players
 Once logged in, click the **Manage Users** button in the top bar.
-You can invite your friends using their GitHub usernames, Discord usernames, Google emails, or Apple emails. 
+You can invite your friends using their GitHub usernames, Discord usernames, or Google emails.
 When they visit your URL and click "Login", they will instantly be whitelisted and can start submitting matches.
 
 ## Schema Reference
