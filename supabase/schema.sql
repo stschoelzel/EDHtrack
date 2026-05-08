@@ -10,6 +10,7 @@ insert into app_config (id) values (1) on conflict do nothing;
 create table allowed_users (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
+  provider text,
   added_by uuid references auth.users(id),
   added_at timestamptz default now(),
   is_admin boolean default false
@@ -87,9 +88,9 @@ begin
 
   -- (a) Repo-Owner via GitHub → Admin
   if v_provider = 'github' and v_identifier is not null and v_identifier = v_owner then
-    insert into allowed_users (user_id, display_name, is_admin)
-    values (new.id, v_identifier, true)
-    on conflict (user_id) do update set is_admin = true;
+    insert into allowed_users (user_id, display_name, provider, is_admin)
+    values (new.id, v_identifier, v_provider, true)
+    on conflict (user_id) do update set is_admin = true, provider = excluded.provider;
     return new;
   end if;
 
@@ -97,8 +98,8 @@ begin
   if v_identifier is not null and exists (
     select 1 from pending_invites where provider = v_provider and identifier = v_identifier
   ) then
-    insert into allowed_users (user_id, display_name, is_admin)
-    values (new.id, v_identifier, false)
+    insert into allowed_users (user_id, display_name, provider, is_admin)
+    values (new.id, v_identifier, v_provider, false)
     on conflict (user_id) do nothing;
     delete from pending_invites where provider = v_provider and identifier = v_identifier;
   end if;
@@ -208,9 +209,9 @@ begin
 
   -- Wenn der Aufrufer der konfigurierte Owner ist, mach ihn zum Admin
   if v_caller_github_username is not null and v_caller_github_username = v_owner then
-    insert into allowed_users (user_id, display_name, is_admin)
-    values (auth.uid(), v_caller_github_username, true)
-    on conflict (user_id) do update set is_admin = true;
+    insert into allowed_users (user_id, display_name, provider, is_admin)
+    values (auth.uid(), v_caller_github_username, 'github', true)
+    on conflict (user_id) do update set is_admin = true, provider = excluded.provider;
     return true;
   end if;
 

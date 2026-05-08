@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>EDHtrack - Admin</title>
+    <title>EDHtrack - Manager</title>
     <link rel="stylesheet" href="css/style.css" />
 </head>
 
@@ -13,17 +13,17 @@
 
         <header class="brand">
             <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
-            <div class="subtitle">Admin tools and access control.</div>
+            <div class="subtitle">Data and user management.</div>
         </header>
 
         <section class="screen active">
             <div class="topbar">
-                <span id="admin-who"></span>
+                <span id="manager-who"></span>
                 <button id="back-to-main-btn" class="ghost">Back to Match Form</button>
             </div>
 
-            <div class="panel" id="admin-tools-panel">
-                <label>Admin Tools</label>
+            <div class="panel">
+                <label>Edit Tools</label>
                 <div class="admin-tools-grid">
                     <button id="edit-decks-btn" class="ghost">Edit Decks</button>
                     <button id="edit-players-btn" class="ghost">Edit Players</button>
@@ -121,7 +121,8 @@
                 allowed.forEach(a => {
                     const d = document.createElement("div");
                     d.className = "list-item";
-                    d.innerHTML = `<span>${escapeHtml(a.display_name)} ${a.is_admin ? '(Admin)' : ''}</span>`;
+                    const providerLabel = a.provider ? a.provider.toUpperCase() : "UNKNOWN";
+                    d.innerHTML = `<span>${escapeHtml(a.display_name)} ${a.is_admin ? '(Admin)' : ''}</span><span class="muted">${escapeHtml(providerLabel)}</span>`;
                     allDiv.appendChild(d);
                 });
             } else {
@@ -148,16 +149,12 @@
         async function boot() {
             const context = await checkSession();
             if (!context) return;
-            if (!context.allowed?.is_admin) {
-                window.location.replace(resolveAppUrl("tracker.html"));
-                return;
-            }
 
             state.supabase = context.supabase;
             state.session = context.session;
             state.allowed = context.allowed;
 
-            $("admin-who").textContent = context.allowed.display_name + " (Admin)";
+            $("manager-who").textContent = context.allowed.display_name + (context.allowed.is_admin ? " (Admin)" : "");
 
             $("back-to-main-btn").addEventListener("click", () => {
                 window.location.href = resolveAppUrl("tracker.html");

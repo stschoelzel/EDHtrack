@@ -47,22 +47,18 @@
                     <input id="win-cond" type="text" list="dl-winconds" />
                     <datalist id="dl-winconds"></datalist>
                 </div>
-
-                <div id="admin-tools-actions" class="admin-tools-wrap">
-                    <label>Admin Tools</label>
-                    <div class="admin-tools-grid">
-                        <button id="manage-users-btn" class="ghost">Manage Users</button>
-                        <button id="edit-decks-btn" class="ghost">Edit Decks</button>
-                        <button id="edit-players-btn" class="ghost">Edit Players</button>
-                        <button id="edit-game-types-btn" class="ghost">Edit Game Types</button>
-                        <button id="edit-win-conditions-btn" class="ghost">Edit Winning Conditions</button>
-                    </div>
-                </div>
             </div>
 
             <div class="actions">
                 <button id="submit-btn" class="primary">Submit Match</button>
                 <button id="reset-btn" class="ghost">Reset</button>
+            </div>
+
+            <div class="panel" style="margin-top:1rem">
+                <label>Data and User Managment</label>
+                <div class="actions" style="margin-top:0;">
+                    <button id="data-user-management-btn" class="ghost">Data and User Managment</button>
+                </div>
             </div>
         </section>
 
@@ -126,8 +122,8 @@
             window.location.replace(resolveAppUrl("index.html"));
         }
 
-        function goToAdminPage(hash = "") {
-            window.location.href = resolveAppUrl("admin.html") + hash;
+        function goToManagerPage() {
+            window.location.href = resolveAppUrl("manager.html");
         }
 
         function fillDatalist(id, items) {
@@ -380,9 +376,6 @@
             state.isAdmin = Boolean(context.allowed?.is_admin);
 
             $("who").textContent = context.allowed.display_name + (state.isAdmin ? " (Admin)" : "");
-            if (state.isAdmin) {
-                $("admin-tools-actions").style.display = "block";
-            }
 
             $("add-player").addEventListener("click", () => {
                 if (state.rows.length < MAX_PLAYERS) {
@@ -395,14 +388,7 @@
             $("show-stats-btn").addEventListener("click", () => toast("Stats coming soon", "keep"));
             $("export-csv-btn").addEventListener("click", exportCSV);
             $("main-logout-btn").addEventListener("click", handleLogout);
-
-            if (state.isAdmin) {
-                $("manage-users-btn").addEventListener("click", () => goToAdminPage("#users"));
-                $("edit-decks-btn").addEventListener("click", () => goToAdminPage("#decks"));
-                $("edit-players-btn").addEventListener("click", () => goToAdminPage("#players"));
-                $("edit-game-types-btn").addEventListener("click", () => goToAdminPage("#game-types"));
-                $("edit-win-conditions-btn").addEventListener("click", () => goToAdminPage("#win-conditions"));
-            }
+            $("data-user-management-btn").addEventListener("click", goToManagerPage);
 
             document.addEventListener('focusin', e => {
                 if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {
