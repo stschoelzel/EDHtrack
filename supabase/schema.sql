@@ -50,7 +50,8 @@ create table matches (
   id uuid primary key default gen_random_uuid(),
   played_at date not null default current_date,
   participants jsonb not null,   -- [{player:"Daddy", deck:"Frodo"}, ...]
-  winner text not null,          -- player name
+  winner text not null,          -- player name, comma separated if draw
+  is_draw boolean default false,
   turn int,
   win_condition text,
   game_type text not null,
@@ -178,3 +179,41 @@ create policy "insert for allowed" on win_conditions for insert
 
 -- Grants
 grant all privileges on all tables in schema public to anon, authenticated;
+
+-- RPC Fallback: If trigger missed (e.g. user already existed before setup), this allows the owner to manually claim admin rights
+create or replace function public.bootstrap_admin() returns boolean
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_owner text;
+  v_caller_github_username text;
+  v_user_count int;
+begin
+  -- Nur ausführen, wenn allowed_users komplett leer ist (erste Einrichtung)
+  select count(*) into v_user_count from allowed_users;
+  if v_user_count > 0 then
+    return false;
+  end if;
+
+  v_owner := (select owner_github_login from app_config where id = 1);
+  if v_owner is null then
+    return false;
+  end if;
+
+  -- Aufrufenden User aus auth.users holen
+  select raw_user_meta_data->>'user_name' into v_caller_github_username
+  from auth.users
+  where id = auth.uid();
+
+  -- Wenn der Aufrufer der konfigurierte Owner ist, mach ihn zum Admin
+  if v_caller_github_username is not null and v_caller_github_username = v_owner then
+    insert into allowed_users (user_id, display_name, is_admin)
+    values (auth.uid(), v_caller_github_username, true)
+    on conflict (user_id) do update set is_admin = true;
+    return true;
+  end if;
+
+  return false;
+end;
+$$;

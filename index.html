@@ -319,7 +319,7 @@
 
   <header class="brand">
     <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
-    <div class="subtitle">Commander Match Log (Supabase)</div>
+    <div class="subtitle">Your simple DIY match log.</div>
   </header>
 
   <!-- Setup Screen -->
@@ -389,9 +389,9 @@
     <div class="topbar">
       <span id="who"></span>
       <span class="buttons">
+        <button id="export-csv-btn" class="ghost" style="color:var(--keep)">Export CSV</button>
         <button id="manage-users-btn" class="ghost" style="display:none; color:var(--pending)">Manage Users</button>
-        <button id="export-csv-btn" class="ghost">Export CSV</button>
-        <button id="main-logout-btn" class="ghost">Logout</button>
+        <button id="main-logout-btn" class="ghost" style="color:var(--fail)">Logout</button>
       </span>
     </div>
 
@@ -592,16 +592,26 @@ async function boot() {
   }
 
   // Check if allowed
-  const { data: allowed, error } = await state.supabase
+  let { data: allowed, error } = await state.supabase
     .from('allowed_users')
     .select('display_name, is_admin')
     .eq('user_id', session.user.id)
     .single();
 
+  // Fallback: Try to bootstrap if user is not in allowed_users (e.g., missed trigger)
   if (error || !allowed) {
-    // Check if we just did the bootstrap. The trigger might have worked.
-    // Sometimes session is stale or trigger didn't finish before redirect?
-    // Let's check app_config
+    const { data: bootstrapSuccess } = await state.supabase.rpc('bootstrap_admin');
+    if (bootstrapSuccess) {
+      const { data: retryAllowed } = await state.supabase
+        .from('allowed_users')
+        .select('display_name, is_admin')
+        .eq('user_id', session.user.id)
+        .single();
+      allowed = retryAllowed;
+    }
+  }
+
+  if (!allowed) {
     showScreen("screen-not-allowed");
     return;
   }
@@ -632,6 +642,21 @@ async function boot() {
     showScreen("screen-main");
   });
   $("invite-btn").addEventListener("click", addInvite);
+
+  // Datalist UX trick: clear value on focus to show all options, restore on blur if empty
+  document.addEventListener('focusin', e => {
+    if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {
+      e.target._oldVal = e.target.value;
+      e.target.value = '';
+    }
+  });
+  document.addEventListener('focusout', e => {
+    if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {
+      if (e.target.value === '' && e.target._oldVal) {
+        e.target.value = e.target._oldVal;
+      }
+    }
+  });
 
   // Load Lookups
   await loadLookups();
@@ -676,6 +701,8 @@ function renderPlayerRows() {
     const div = document.createElement("div");
     div.className = "player-row";
     const canRemove = state.rows.length > 2;
+    const isWinner = state.winners.includes(idx);
+    
     div.innerHTML = `
       <div class="row-head">
         <span class="row-label">Player ${idx+1}</span>
@@ -692,8 +719,14 @@ function renderPlayerRows() {
         </div>
       </div>
       <div class="winner-cell">
-        <input type="radio" name="winner" id="winner-${idx}" value="${idx}" ${state.winnerIdx===idx?"checked":""} />
+        <input type="${state.isDraw ? 'checkbox' : 'radio'}" name="winner" id="winner-${idx}" value="${idx}" ${isWinner ? "checked" : ""} />
         <label for="winner-${idx}">Winner</label>
+        ${(isWinner || state.isDraw) ? `
+          <div style="margin-left: 1rem; display:flex; align-items:center; gap: 0.5rem; opacity: ${state.isDraw ? '1' : '0.5'};">
+            <input type="checkbox" id="draw-toggle-${idx}" class="draw-toggle" ${state.isDraw ? "checked" : ""} style="width:16px;height:16px;min-width:16px;border-radius:4px" />
+            <label for="draw-toggle-${idx}" style="color:var(--foreground-muted);font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;">DRAW?</label>
+          </div>
+        ` : ""}
       </div>
     `;
     wrap.appendChild(div);
@@ -708,14 +741,37 @@ function renderPlayerRows() {
   });
   wrap.querySelectorAll("input[name='winner']").forEach(inp => {
     inp.addEventListener("change", (e) => {
-      state.winnerIdx = +e.target.value;
+      const val = +e.target.value;
+      if (state.isDraw) {
+        if (e.target.checked) {
+          if (!state.winners.includes(val)) state.winners.push(val);
+        } else {
+          state.winners = state.winners.filter(x => x !== val);
+        }
+      } else {
+        state.winners = [val];
+      }
+      renderPlayerRows();
+    });
+  });
+  wrap.querySelectorAll(".draw-toggle").forEach(inp => {
+    inp.addEventListener("change", (e) => {
+      state.isDraw = e.target.checked;
+      if (!state.isDraw && state.winners.length > 1) {
+        state.winners = [state.winners[0]]; // Revert to first selected
+      }
+      if (!state.isDraw && state.winners.length === 0) {
+        state.winners = [0];
+      }
+      renderPlayerRows();
     });
   });
   wrap.querySelectorAll("button[data-rm]").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const i = +e.target.dataset.rm;
       state.rows.splice(i, 1);
-      if (state.winnerIdx >= state.rows.length) state.winnerIdx = 0;
+      state.winners = state.winners.filter(x => x !== i).map(x => x > i ? x - 1 : x);
+      if (state.winners.length === 0) state.winners = [0];
       renderPlayerRows();
     });
   });
@@ -725,7 +781,8 @@ function renderPlayerRows() {
 
 function resetForm() {
   state.rows = Array.from({length: INITIAL_ROWS}, () => ({ player:"", deck:"" }));
-  state.winnerIdx = 0;
+  state.winners = [0];
+  state.isDraw = false;
   $("game-type").value = "";
   $("turn").value = "";
   $("win-cond").value = "";
@@ -735,14 +792,17 @@ function resetForm() {
 async function submitMatch() {
   const filled = state.rows.filter(r => r.player.trim() && r.deck.trim());
   if (filled.length < 2) return toast("Need at least 2 players with player + deck.", "fail");
-  const winner = state.rows[state.winnerIdx];
-  if (!winner || !winner.player.trim()) return toast("Winner row needs a player.", "fail");
+  
+  if (state.winners.length === 0) return toast("Select at least one winner.", "fail");
+  for (let idx of state.winners) {
+    const w = state.rows[idx];
+    if (!w || !w.player.trim()) return toast("Selected winner row needs a player.", "fail");
+  }
+
   const gameType = $("game-type").value.trim();
-  if (!gameType) return toast("Game type required.", "fail");
-  
-  const turnVal = parseInt($("turn").value.trim(), 10);
   const winCond = $("win-cond").value.trim();
-  
+  const turn = parseInt($("turn").value.trim(), 10) || null;
+
   $("submit-btn").disabled = true;
   $("submit-btn").textContent = "Submitting...";
 
@@ -758,27 +818,34 @@ async function submitMatch() {
     }
 
     // Insert Match
-    const participants = state.rows.map(r => ({
-      player: r.player.trim(),
-      deck: r.deck.trim()
-    }));
+    const participants = state.rows.map(r => {
+      if (!r.player.trim() && !r.deck.trim()) return null;
+      return {
+        player: r.player.trim(),
+        deck: r.deck.trim()
+      };
+    }).filter(Boolean);
+
+    const winnerNames = state.winners.map(idx => state.rows[idx].player.trim()).join(", ");
 
     const matchRow = {
       participants,
-      winner: winner.player.trim(),
-      turn: isNaN(turnVal) ? null : turnVal,
+      winner: winnerNames,
+      turn: isNaN(turn) ? null : turn,
       win_condition: winCond || null,
-      game_type: gameType
+      game_type: gameType,
+      is_draw: state.isDraw
     };
 
     const { error } = await state.supabase.from('matches').insert([matchRow]);
     if (error) throw error;
 
-    toast("Match saved", "keep");
+    toast("Match saved!", "keep");
     resetForm();
-    await loadLookups(); // reload lookups into datalists
+    await loadLookups();
   } catch(e) {
-    toast(e.message, "fail");
+    console.error(e);
+    toast(e.message || "Error saving match", "fail");
   } finally {
     $("submit-btn").disabled = false;
     $("submit-btn").textContent = "Submit Match";
