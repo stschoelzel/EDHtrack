@@ -4,18 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EDHtrack</title>
-<!--
-  EDHtrack — single-file MTG/Commander match tracker.
-
-  SECURITY MODEL:
-  - GitHub Personal Access Token + repo owner are NEVER in source.
-    They are entered once via the Setup screen and live in localStorage
-    on the user's device. Clearing browser storage requires re-entry.
-  - users.csv contains plaintext app-login credentials (low-stakes —
-    only gates the form, no sensitive data behind it).
-  - The PAT MUST be a fine-grained token scoped to this single repo
-    only. See README.md for token creation.
--->
 <style>
   @font-face {
     font-family: "Resistance";
@@ -287,15 +275,7 @@
     font-family: var(--mono);
     font-size: 0.85em;
   }
-  pre {
-    background: var(--surface-low);
-    border: 1px solid var(--ghost-border);
-    padding: 0.75rem;
-    overflow-x: auto;
-    font-family: var(--mono);
-    font-size: 0.8rem;
-  }
-
+  
   .topbar {
     display: flex;
     justify-content: space-between;
@@ -306,6 +286,13 @@
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--foreground-muted);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .topbar span.buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
   .topbar button { padding: 0.4rem 0.75rem; min-height: 36px; font-size: 0.7rem; }
 
@@ -316,6 +303,15 @@
     color: var(--foreground-muted);
     margin-bottom: 1rem;
   }
+  
+  .list-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--ghost-border);
+    align-items: center;
+  }
+  .list-item:last-child { border-bottom: none; }
 </style>
 </head>
 <body>
@@ -323,51 +319,67 @@
 
   <header class="brand">
     <h1 class="wordmark"><span class="wm-edh">EDH</span><span class="wm-track">track</span></h1>
-    <div class="subtitle">Commander Match Log</div>
+    <div class="subtitle">Commander Match Log (Supabase)</div>
   </header>
 
-  <!-- Setup screen (first-run config; stored in localStorage, never in source) -->
+  <!-- Setup Screen -->
   <section id="screen-config" class="screen">
-    <div class="panel">
-      <label>One-time Setup</label>
-      <p class="muted">These values stay on this device (browser localStorage). They are never committed to the repo.</p>
+    <!-- Phase A -->
+    <div id="setup-phase-a" class="panel">
+      <label>Phase 1: App Connection</label>
+      <p class="muted">Enter your Supabase details to connect the app.</p>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="cfg-url">Supabase Project URL</label>
+        <input id="cfg-url" type="text" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <label for="cfg-key">Anon Public Key</label>
+        <input id="cfg-key" type="text" autocomplete="off" spellcheck="false" />
+      </div>
       <div class="field" style="margin-top:0.75rem">
         <label for="cfg-owner">GitHub Username (Repo Owner)</label>
         <input id="cfg-owner" type="text" autocomplete="off" spellcheck="false" />
       </div>
-      <div class="field" style="margin-top:0.75rem">
-        <label for="cfg-repo">Repo Name</label>
-        <input id="cfg-repo" type="text" autocomplete="off" spellcheck="false" value="EDHtrack" />
-      </div>
-      <div class="field" style="margin-top:0.75rem">
-        <label for="cfg-token">Fine-grained Personal Access Token</label>
-        <input id="cfg-token" type="password" autocomplete="off" spellcheck="false" />
-      </div>
-      <p class="muted" style="margin-top:0.75rem">
-        Token MUST be a <strong>fine-grained PAT</strong> scoped to <strong>this repo only</strong>,
-        with <code>Contents: Read and write</code> permission. See <code>README.md</code>.
-      </p>
       <div id="cfg-err" class="err" style="display:none"></div>
       <div class="actions">
-        <button id="cfg-save" class="primary">Save &amp; Continue</button>
+        <button id="cfg-save-btn" class="primary">Connect</button>
+      </div>
+    </div>
+    
+    <!-- Phase B -->
+    <div id="setup-phase-b" class="panel" style="display:none">
+      <label>Phase 2: Self Authentication</label>
+      <p class="muted">Connection successful! Now login to claim Admin rights. The database will automatically recognize you as the Repo Owner.</p>
+      <div class="actions">
+        <button id="cfg-login-github-btn" class="primary">Login with GitHub</button>
       </div>
     </div>
   </section>
 
-  <!-- Login screen -->
+  <!-- Login Screen -->
   <section id="screen-login" class="screen">
     <div class="panel">
-      <div class="field">
-        <label for="login-user">Username</label>
-        <input id="login-user" type="text" autocomplete="username" />
+      <label>Sign In</label>
+      <p class="muted">Authenticate to submit matches.</p>
+      <div class="actions" style="flex-direction:column">
+        <button id="login-github-btn" class="primary">Login with GitHub</button>
+        <button id="login-discord-btn" class="primary" style="background:#5865F2;border-color:#5865F2;color:white;">Login with Discord</button>
+        <button id="login-google-btn" class="primary" style="background:#DB4437;border-color:#DB4437;color:white;">Login with Google</button>
+        <button id="login-apple-btn" class="primary" style="background:#fff;border-color:#fff;color:black;">Login with Apple</button>
       </div>
-      <div class="field" style="margin-top:0.75rem">
-        <label for="login-pass">Password</label>
-        <input id="login-pass" type="password" autocomplete="current-password" />
+      <div class="actions" style="margin-top:1rem">
+        <button id="login-reset-cfg-btn" class="ghost danger">Reset Setup</button>
       </div>
-      <div id="login-err" class="err" style="display:none"></div>
+    </div>
+  </section>
+
+  <!-- Not Allowed Screen -->
+  <section id="screen-not-allowed" class="screen">
+    <div class="panel">
+      <label>Access Denied</label>
+      <p class="muted">You are logged in, but you have not been invited to this tracker yet. Ask the Repo Owner to whitelist you.</p>
       <div class="actions">
-        <button id="login-btn" class="primary">Sign In</button>
+        <button id="not-allowed-logout-btn" class="primary">Logout</button>
       </div>
     </div>
   </section>
@@ -376,9 +388,10 @@
   <section id="screen-main" class="screen">
     <div class="topbar">
       <span id="who"></span>
-      <span style="display:flex;gap:0.5rem">
-        <button id="reset-cfg-btn" class="ghost danger" title="Clear stored token + owner from this device">Reset Setup</button>
-        <button id="logout-btn" class="ghost">Logout</button>
+      <span class="buttons">
+        <button id="manage-users-btn" class="ghost" style="display:none; color:var(--pending)">Manage Users</button>
+        <button id="export-csv-btn" class="ghost">Export CSV</button>
+        <button id="main-logout-btn" class="ghost">Logout</button>
       </span>
     </div>
 
@@ -411,55 +424,76 @@
     </div>
   </section>
 
+  <!-- Manage Users screen -->
+  <section id="screen-manage-users" class="screen">
+    <div class="topbar">
+      <span>Manage Users &amp; Setup</span>
+      <button id="back-to-main-btn" class="ghost">Back to Match Form</button>
+    </div>
+
+    <div class="panel">
+      <label>Invite New Player</label>
+      <div class="field">
+        <select id="invite-provider">
+          <option value="github">GitHub Username</option>
+          <option value="discord">Discord Username</option>
+          <option value="google">Google Email</option>
+          <option value="apple">Apple Email</option>
+        </select>
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <input id="invite-identifier" type="text" placeholder="Username or Email" />
+      </div>
+      <div class="actions">
+        <button id="invite-btn" class="primary">+ Add Invite</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <label>Pending Invites</label>
+      <div id="pending-list" class="muted">Loading...</div>
+    </div>
+
+    <div class="panel">
+      <label>Allowed Users</label>
+      <div id="allowed-list" class="muted">Loading...</div>
+    </div>
+  </section>
+
 </div>
 
 <datalist id="dl-players"></datalist>
 <datalist id="dl-decks"></datalist>
 
 <script type="module">
-/* ===== CONFIG (loaded from localStorage on this device only) =====
-   Token + owner are NEVER hardcoded. They are entered once via the
-   Setup screen and persisted in this browser. Clear storage to reset. */
-const BRANCH = "main";
-const LS_KEY = "edhtrack.config.v1";
-const cfg = loadConfig();
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const LS_KEY = "edhtrack.config.v2";
 function loadConfig() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { token:"", owner:"", repo:"EDHtrack" };
-    const j = JSON.parse(raw);
-    return { token: j.token||"", owner: j.owner||"", repo: j.repo||"EDHtrack" };
-  } catch { return { token:"", owner:"", repo:"EDHtrack" }; }
+    if (!raw) return { url:"", key:"", owner:"" };
+    return JSON.parse(raw);
+  } catch { return { url:"", key:"", owner:"" }; }
 }
-function saveConfig(c) {
-  localStorage.setItem(LS_KEY, JSON.stringify(c));
-}
-function clearConfig() {
-  localStorage.removeItem(LS_KEY);
-}
-/* ============================================================ */
+function saveConfig(c) { localStorage.setItem(LS_KEY, JSON.stringify(c)); }
+function clearConfig() { localStorage.removeItem(LS_KEY); }
 
-const PLACEHOLDERS = {
-  players: ["Daddy","AlphaK","me","Herr Johannes"],
-  decks: ["Frodo auf Crack","Bello the bestest Boi","Wakanda Forever","Norin..."],
-  gameTypes: ["EDH","Pentagram","Archenemy","Planechase"],
-  winConditions: [],
-};
-const MAX_PLAYERS = 6;
+const MAX_PLAYERS = 8;
 const INITIAL_ROWS = 4;
 
 const state = {
-  user: null,
+  supabase: null,
+  session: null,
+  isAdmin: false,
   players: [],
   decks: [],
   gameTypes: [],
   winConditions: [],
   rows: [],
   winnerIdx: 0,
-  shas: {},
 };
 
-/* ----- DOM helpers ----- */
 const $ = (id) => document.getElementById(id);
 function showScreen(id) {
   for (const s of document.querySelectorAll(".screen")) s.classList.remove("active");
@@ -472,126 +506,153 @@ function toast(msg, kind="") {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3500);
 }
-
-/* ----- Base64 (UTF-8 safe) ----- */
-const b64encode = (s) => btoa(unescape(encodeURIComponent(s)));
-const b64decode = (b) => decodeURIComponent(escape(atob(b.replace(/\s/g,""))));
-
-/* ----- GitHub API ----- */
-function ghHeaders() {
-  return {
-    "Accept": "application/vnd.github+json",
-    "Authorization": "Bearer " + cfg.token,
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
 }
-async function ghGet(path) {
-  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(BRANCH)}`;
-  const res = await fetch(url, { headers: ghHeaders() });
-  if (res.status === 404) return { content: null, sha: null, missing: true };
-  if (!res.ok) throw new Error(`GET ${path}: ${res.status} ${res.statusText}`);
-  const j = await res.json();
-  return { content: b64decode(j.content), sha: j.sha, missing: false };
-}
-async function ghPut(path, content, sha, message) {
-  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}`;
-  const body = {
-    message: message || `update ${path}`,
-    content: b64encode(content),
-    branch: BRANCH,
-  };
-  if (sha) body.sha = sha;
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: { ...ghHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+
+async function doLogin(provider) {
+  if (!state.supabase) return;
+  const { error } = await state.supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: window.location.origin + window.location.pathname }
   });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`PUT ${path}: ${res.status} ${t}`);
-  }
-  const j = await res.json();
-  return j.content.sha;
+  if (error) toast(error.message, 'fail');
 }
 
-/* ----- CSV ----- */
-function parseCsv(text) {
-  // Returns { header: [...], rows: [[...], ...] }
-  const rows = [];
-  let cur = [], field = "", inQ = false;
-  const t = text.replace(/\r\n?/g, "\n");
-  for (let i = 0; i < t.length; i++) {
-    const c = t[i];
-    if (inQ) {
-      if (c === '"') {
-        if (t[i+1] === '"') { field += '"'; i++; }
-        else inQ = false;
-      } else field += c;
-    } else {
-      if (c === '"') inQ = true;
-      else if (c === ",") { cur.push(field); field = ""; }
-      else if (c === "\n") { cur.push(field); rows.push(cur); cur = []; field = ""; }
-      else field += c;
+async function handleLogout() {
+  if (state.supabase) await state.supabase.auth.signOut();
+  window.location.reload();
+}
+
+async function resetSetup() {
+  if (confirm("Reset setup on this device? You will need to enter the Supabase URL and Key again.")) {
+    clearConfig();
+    await handleLogout();
+  }
+}
+
+async function boot() {
+  // Bind Setup screen
+  $("cfg-save-btn").addEventListener("click", async () => {
+    const url = $("cfg-url").value.trim();
+    const key = $("cfg-key").value.trim();
+    const owner = $("cfg-owner").value.trim();
+    if (!url || !key || !owner) return toast("All fields required", "fail");
+    
+    $("cfg-save-btn").disabled = true;
+    $("cfg-save-btn").textContent = "Connecting...";
+    try {
+      const sb = createClient(url, key);
+      // Try to set app_config if null
+      const { error: updErr } = await sb.from('app_config')
+        .update({ owner_github_login: owner })
+        .eq('id', 1)
+        .is('owner_github_login', null);
+      
+      const { data, error } = await sb.from('app_config').select('owner_github_login').single();
+      if (error) throw new Error("Could not read app_config. Check URL, Key and Database Schema.");
+      
+      saveConfig({ url, key, owner: data.owner_github_login || owner });
+      state.supabase = sb;
+      $("setup-phase-a").style.display = "none";
+      $("setup-phase-b").style.display = "block";
+    } catch(e) {
+      toast(e.message, "fail");
+    } finally {
+      $("cfg-save-btn").disabled = false;
+      $("cfg-save-btn").textContent = "Connect";
     }
+  });
+
+  $("cfg-login-github-btn").addEventListener("click", () => doLogin('github'));
+  $("login-github-btn").addEventListener("click", () => doLogin('github'));
+  $("login-discord-btn").addEventListener("click", () => doLogin('discord'));
+  $("login-google-btn").addEventListener("click", () => doLogin('google'));
+  $("login-apple-btn").addEventListener("click", () => doLogin('apple'));
+  $("main-logout-btn").addEventListener("click", handleLogout);
+  $("not-allowed-logout-btn").addEventListener("click", handleLogout);
+  $("login-reset-cfg-btn").addEventListener("click", resetSetup);
+
+  const cfg = loadConfig();
+  if (!cfg.url || !cfg.key) {
+    showScreen("screen-config");
+    return;
   }
-  if (field.length || cur.length) { cur.push(field); rows.push(cur); }
-  // Drop trailing empty rows
-  while (rows.length && rows[rows.length-1].every(x => x === "")) rows.pop();
-  if (!rows.length) return { header: [], rows: [] };
-  return { header: rows[0].map(h => h.trim()), rows: rows.slice(1) };
-}
-function parseSingleColumn(text) {
-  const { rows } = parseCsv(text);
-  return rows.map(r => (r[0] || "").trim()).filter(Boolean);
-}
-function csvEscape(s) {
-  s = String(s ?? "");
-  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-  return s;
-}
-function csvLine(values) { return values.map(csvEscape).join(","); }
 
-/* ----- Auth ----- */
-async function tryLogin(user, pass) {
-  const r = await ghGet("users.csv");
-  if (r.missing) throw new Error("users.csv not found in repo");
-  // strip UTF-8 BOM if present
-  const text = r.content.replace(/^﻿/, "");
-  const { rows } = parseCsv(text);
-  const u0 = user.trim();
-  const p0 = pass.trim();
-  for (const row of rows) {
-    const u = (row[0] || "").trim();
-    const p = (row[1] || "").trim();
-    if (!u) continue;
-    if (u === u0 && p === p0) return true;
+  // Init Supabase
+  state.supabase = createClient(cfg.url, cfg.key);
+  const { data: { session } } = await state.supabase.auth.getSession();
+  state.session = session;
+
+  if (!session) {
+    showScreen("screen-login");
+    return;
   }
-  return false;
+
+  // Check if allowed
+  const { data: allowed, error } = await state.supabase
+    .from('allowed_users')
+    .select('display_name, is_admin')
+    .eq('user_id', session.user.id)
+    .single();
+
+  if (error || !allowed) {
+    // Check if we just did the bootstrap. The trigger might have worked.
+    // Sometimes session is stale or trigger didn't finish before redirect?
+    // Let's check app_config
+    showScreen("screen-not-allowed");
+    return;
+  }
+
+  state.isAdmin = allowed.is_admin;
+  $("who").textContent = allowed.display_name + (state.isAdmin ? " (Admin)" : "");
+  if (state.isAdmin) {
+    $("manage-users-btn").style.display = "block";
+  }
+
+  // Bind Main Screen
+  $("add-player").addEventListener("click", () => {
+    if (state.rows.length < MAX_PLAYERS) {
+      state.rows.push({ player: "", deck: "" });
+      renderPlayerRows();
+    }
+  });
+  $("reset-btn").addEventListener("click", resetForm);
+  $("submit-btn").addEventListener("click", submitMatch);
+  $("export-csv-btn").addEventListener("click", exportCSV);
+  
+  // Bind Manage Users Screen
+  $("manage-users-btn").addEventListener("click", () => {
+    showScreen("screen-manage-users");
+    loadManageUsers();
+  });
+  $("back-to-main-btn").addEventListener("click", () => {
+    showScreen("screen-main");
+  });
+  $("invite-btn").addEventListener("click", addInvite);
+
+  // Load Lookups
+  await loadLookups();
+  resetForm();
+  showScreen("screen-main");
 }
 
-/* ----- Data load ----- */
-async function loadAll() {
-  const files = ["players.csv","decks.csv","gametypes.csv","winconditions.csv","matches.csv"];
-  const results = await Promise.all(files.map(f => ghGet(f).catch(e => ({ error: e, missing: true }))));
-  const [p, d, g, w, m] = results;
-  state.shas = {};
-  state.players       = p.missing ? [...PLACEHOLDERS.players]      : parseSingleColumn(p.content);
-  state.decks         = d.missing ? [...PLACEHOLDERS.decks]        : parseSingleColumn(d.content);
-  state.gameTypes     = g.missing ? [...PLACEHOLDERS.gameTypes]    : parseSingleColumn(g.content);
-  state.winConditions = w.missing ? [...PLACEHOLDERS.winConditions]: parseSingleColumn(w.content);
-  if (!p.missing) state.shas["players.csv"]       = p.sha;
-  if (!d.missing) state.shas["decks.csv"]         = d.sha;
-  if (!g.missing) state.shas["gametypes.csv"]     = g.sha;
-  if (!w.missing) state.shas["winconditions.csv"] = w.sha;
-  if (!m.missing) state.shas["matches.csv"]       = m.sha;
-  state.matchesContent = m.missing ? null : m.content;
-  // ensure placeholders fall through to lists if empty
-  if (!state.players.length) state.players = [...PLACEHOLDERS.players];
-  if (!state.decks.length) state.decks = [...PLACEHOLDERS.decks];
-  if (!state.gameTypes.length) state.gameTypes = [...PLACEHOLDERS.gameTypes];
+async function loadLookups() {
+  const [p, d, g, w] = await Promise.all([
+    state.supabase.from('players').select('name'),
+    state.supabase.from('decks').select('name'),
+    state.supabase.from('game_types').select('name'),
+    state.supabase.from('win_conditions').select('name')
+  ]);
+  state.players = p.data ? p.data.map(x => x.name) : [];
+  state.decks = d.data ? d.data.map(x => x.name) : [];
+  state.gameTypes = g.data ? g.data.map(x => x.name) : [];
+  state.winConditions = w.data ? w.data.map(x => x.name) : [];
+  renderDatalists();
 }
 
-/* ----- Render ----- */
 function fillDatalist(id, items) {
   const dl = $(id);
   dl.innerHTML = "";
@@ -607,6 +668,7 @@ function renderDatalists() {
   fillDatalist("dl-gametypes", state.gameTypes);
   fillDatalist("dl-winconds", state.winConditions);
 }
+
 function renderPlayerRows() {
   const wrap = $("player-rows");
   wrap.innerHTML = "";
@@ -637,7 +699,6 @@ function renderPlayerRows() {
     wrap.appendChild(div);
   });
 
-  // bind input changes
   wrap.querySelectorAll("input[data-pidx]").forEach(inp => {
     inp.addEventListener("input", (e) => {
       const i = +e.target.dataset.pidx;
@@ -661,119 +722,7 @@ function renderPlayerRows() {
 
   $("add-player").disabled = state.rows.length >= MAX_PLAYERS;
 }
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[c]));
-}
 
-/* ----- Submit ----- */
-function buildMatchRow() {
-  const date = new Date().toISOString().slice(0,10);
-  const slots = [];
-  for (let i = 0; i < MAX_PLAYERS; i++) {
-    const r = state.rows[i];
-    slots.push(r ? r.player.trim() : "");
-    slots.push(r ? r.deck.trim() : "");
-  }
-  const winnerName = (state.rows[state.winnerIdx]?.player || "").trim();
-  const turn = $("turn").value.trim();
-  const winCond = $("win-cond").value.trim();
-  const gameType = $("game-type").value.trim();
-  return [date, ...slots, winnerName, turn, winCond, gameType];
-}
-function validate() {
-  const filled = state.rows.filter(r => r.player.trim() && r.deck.trim());
-  if (filled.length < 2) return "Need at least 2 players with player + deck.";
-  const winner = state.rows[state.winnerIdx];
-  if (!winner || !winner.player.trim()) return "Winner row needs a player.";
-  if (!$("game-type").value.trim()) return "Game type required.";
-  return null;
-}
-async function persistNewLookups() {
-  // For each lookup list, find new values and append to its CSV.
-  const tasks = [
-    { file: "players.csv",       list: state.players,       newVals: collectNew(state.rows.map(r=>r.player), state.players) },
-    { file: "decks.csv",         list: state.decks,         newVals: collectNew(state.rows.map(r=>r.deck), state.decks) },
-    { file: "gametypes.csv",     list: state.gameTypes,     newVals: collectNew([$("game-type").value], state.gameTypes) },
-    { file: "winconditions.csv", list: state.winConditions, newVals: collectNew([$("win-cond").value], state.winConditions) },
-  ];
-  for (const t of tasks) {
-    if (!t.newVals.length) continue;
-    let text;
-    let sha = state.shas[t.file];
-    if (sha) {
-      // refetch to get fresh sha + content (avoid stale)
-      const cur = await ghGet(t.file);
-      sha = cur.sha;
-      text = cur.content || "Name\n";
-    } else {
-      const cur = await ghGet(t.file);
-      if (!cur.missing) { sha = cur.sha; text = cur.content; state.shas[t.file] = sha; }
-      else { sha = null; text = "Name\n"; }
-    }
-    if (!text.endsWith("\n")) text += "\n";
-    for (const v of t.newVals) {
-      text += csvEscape(v) + "\n";
-      t.list.push(v);
-    }
-    const newSha = await ghPut(t.file, text, sha, `add to ${t.file}: ${t.newVals.join(", ")}`);
-    state.shas[t.file] = newSha;
-  }
-}
-function collectNew(candidates, existing) {
-  const set = new Set(existing.map(s => s.toLowerCase()));
-  const out = [];
-  const seen = new Set();
-  for (const c of candidates) {
-    const v = (c || "").trim();
-    if (!v) continue;
-    const k = v.toLowerCase();
-    if (set.has(k) || seen.has(k)) continue;
-    seen.add(k);
-    out.push(v);
-  }
-  return out;
-}
-async function appendMatch() {
-  const row = buildMatchRow();
-  const line = csvLine(row);
-  let cur = await ghGet("matches.csv");
-  let text, sha;
-  const header = csvLine(["Date","Player1","Deck1","Player2","Deck2","Player3","Deck3","Player4","Deck4","Player5","Deck5","Player6","Deck6","Winner","Turn","WinCondition","GameType"]);
-  if (cur.missing) {
-    text = header + "\n" + line + "\n";
-    sha = null;
-  } else {
-    text = cur.content;
-    if (!text.endsWith("\n")) text += "\n";
-    text += line + "\n";
-    sha = cur.sha;
-  }
-  await ghPut("matches.csv", text, sha, "add match");
-}
-
-async function onSubmit() {
-  const err = validate();
-  if (err) { toast(err, "fail"); return; }
-  const btn = $("submit-btn");
-  btn.disabled = true;
-  const orig = btn.textContent;
-  btn.textContent = "Submitting...";
-  try {
-    await persistNewLookups();
-    await appendMatch();
-    renderDatalists();
-    toast("Match saved", "keep");
-    resetForm();
-  } catch (e) {
-    console.error(e);
-    toast("Error: " + e.message, "fail");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = orig;
-  }
-}
 function resetForm() {
   state.rows = Array.from({length: INITIAL_ROWS}, () => ({ player:"", deck:"" }));
   state.winnerIdx = 0;
@@ -783,101 +732,157 @@ function resetForm() {
   renderPlayerRows();
 }
 
-/* ----- Boot ----- */
-function init() {
-  bindSetup();
-  if (!cfg.token || !cfg.owner || !cfg.repo) {
-    $("cfg-owner").value = cfg.owner;
-    $("cfg-repo").value  = cfg.repo;
-    $("cfg-token").value = cfg.token;
-    showScreen("screen-config");
-    return;
+async function submitMatch() {
+  const filled = state.rows.filter(r => r.player.trim() && r.deck.trim());
+  if (filled.length < 2) return toast("Need at least 2 players with player + deck.", "fail");
+  const winner = state.rows[state.winnerIdx];
+  if (!winner || !winner.player.trim()) return toast("Winner row needs a player.", "fail");
+  const gameType = $("game-type").value.trim();
+  if (!gameType) return toast("Game type required.", "fail");
+  
+  const turnVal = parseInt($("turn").value.trim(), 10);
+  const winCond = $("win-cond").value.trim();
+  
+  $("submit-btn").disabled = true;
+  $("submit-btn").textContent = "Submitting...";
+
+  try {
+    // Insert new lookups (upsert)
+    const newP = filled.map(r => ({ name: r.player.trim() }));
+    const newD = filled.map(r => ({ name: r.deck.trim() }));
+    if (newP.length) await state.supabase.from('players').upsert(newP, { onConflict: 'name', ignoreDuplicates: true });
+    if (newD.length) await state.supabase.from('decks').upsert(newD, { onConflict: 'name', ignoreDuplicates: true });
+    await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
+    if (winCond) {
+      await state.supabase.from('win_conditions').upsert([{ name: winCond }], { onConflict: 'name', ignoreDuplicates: true });
+    }
+
+    // Insert Match
+    const participants = state.rows.map(r => ({
+      player: r.player.trim(),
+      deck: r.deck.trim()
+    }));
+
+    const matchRow = {
+      participants,
+      winner: winner.player.trim(),
+      turn: isNaN(turnVal) ? null : turnVal,
+      win_condition: winCond || null,
+      game_type: gameType
+    };
+
+    const { error } = await state.supabase.from('matches').insert([matchRow]);
+    if (error) throw error;
+
+    toast("Match saved", "keep");
+    resetForm();
+    await loadLookups(); // reload lookups into datalists
+  } catch(e) {
+    toast(e.message, "fail");
+  } finally {
+    $("submit-btn").disabled = false;
+    $("submit-btn").textContent = "Submit Match";
   }
-  showScreen("screen-login");
-
-  $("login-btn").addEventListener("click", async () => {
-    const u = $("login-user").value.trim();
-    const p = $("login-pass").value;
-    const errEl = $("login-err");
-    errEl.style.display = "none";
-    if (!u || !p) { errEl.textContent = "Enter username and password."; errEl.style.display = "block"; return; }
-    $("login-btn").disabled = true;
-    try {
-      const ok = await tryLogin(u, p);
-      if (!ok) { errEl.textContent = "Invalid credentials."; errEl.style.display = "block"; return; }
-      state.user = u;
-      $("who").textContent = "Signed in as " + u;
-      await loadAll();
-      resetForm();
-      renderDatalists();
-      showScreen("screen-main");
-    } catch (e) {
-      errEl.textContent = e.message;
-      errEl.style.display = "block";
-    } finally {
-      $("login-btn").disabled = false;
-    }
-  });
-
-  $("login-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("login-btn").click(); });
-
-  $("add-player").addEventListener("click", () => {
-    if (state.rows.length >= MAX_PLAYERS) return;
-    state.rows.push({ player:"", deck:"" });
-    renderPlayerRows();
-  });
-  $("submit-btn").addEventListener("click", onSubmit);
-  $("reset-btn").addEventListener("click", resetForm);
-  $("logout-btn").addEventListener("click", () => {
-    state.user = null;
-    $("login-user").value = "";
-    $("login-pass").value = "";
-    showScreen("screen-login");
-  });
-  $("reset-cfg-btn").addEventListener("click", () => {
-    if (!confirm("Clear stored token and owner from this device? You will need to re-enter them.")) return;
-    clearConfig();
-    cfg.token = ""; cfg.owner = ""; cfg.repo = "EDHtrack";
-    state.user = null;
-    $("cfg-owner").value = "";
-    $("cfg-repo").value = "EDHtrack";
-    $("cfg-token").value = "";
-    showScreen("screen-config");
-  });
 }
 
-function bindSetup() {
-  $("cfg-save").addEventListener("click", async () => {
-    const owner = $("cfg-owner").value.trim();
-    const repo  = $("cfg-repo").value.trim() || "EDHtrack";
-    const token = $("cfg-token").value.trim();
-    const errEl = $("cfg-err");
-    errEl.style.display = "none";
-    if (!owner || !token) {
-      errEl.textContent = "Username and token required.";
-      errEl.style.display = "block";
-      return;
-    }
-    cfg.owner = owner; cfg.repo = repo; cfg.token = token;
-    // probe: try to fetch repo to validate creds + scope
-    $("cfg-save").disabled = true;
-    try {
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: ghHeaders() });
-      if (res.status === 401) throw new Error("Token rejected (401). Check token value.");
-      if (res.status === 404) throw new Error("Repo not found or token has no access. Make sure the fine-grained PAT is scoped to this exact repo.");
-      if (!res.ok) throw new Error(`GitHub API: ${res.status} ${res.statusText}`);
-      saveConfig(cfg);
-      showScreen("screen-login");
-    } catch (e) {
-      errEl.textContent = e.message;
-      errEl.style.display = "block";
-    } finally {
-      $("cfg-save").disabled = false;
-    }
-  });
+// Manage Users logic
+async function loadManageUsers() {
+  if (!state.isAdmin) return;
+  const { data: inv } = await state.supabase.from('pending_invites').select('*').order('invited_at', { ascending: false });
+  const { data: allowed } = await state.supabase.from('allowed_users').select('*').order('added_at', { ascending: false });
+  
+  const invDiv = $("pending-list");
+  invDiv.innerHTML = "";
+  if (inv && inv.length) {
+    inv.forEach(i => {
+      const d = document.createElement("div");
+      d.className = "list-item";
+      d.innerHTML = `<span><b>${escapeHtml(i.provider)}:</b> ${escapeHtml(i.identifier)}</span> <button data-id="${i.id}" class="row-remove">Remove</button>`;
+      invDiv.appendChild(d);
+    });
+    invDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
+      const id = e.target.dataset.id;
+      await state.supabase.from('pending_invites').delete().eq('id', id);
+      loadManageUsers();
+    }));
+  } else {
+    invDiv.textContent = "No pending invites.";
+  }
+
+  const allDiv = $("allowed-list");
+  allDiv.innerHTML = "";
+  if (allowed && allowed.length) {
+    allowed.forEach(a => {
+      const d = document.createElement("div");
+      d.className = "list-item";
+      d.innerHTML = `<span>${escapeHtml(a.display_name)} ${a.is_admin ? '(Admin)' : ''}</span>`;
+      allDiv.appendChild(d);
+    });
+  } else {
+    allDiv.textContent = "No allowed users.";
+  }
 }
 
-init();
+async function addInvite() {
+  const provider = $("invite-provider").value;
+  const identifier = $("invite-identifier").value.trim();
+  if (!identifier) return toast("Identifier required", "fail");
+
+  const { error } = await state.supabase.from('pending_invites').insert([{ provider, identifier }]);
+  if (error) {
+    if (error.code === '23505') toast("Invite already exists", "fail");
+    else toast(error.message, "fail");
+  } else {
+    toast("Invited", "keep");
+    $("invite-identifier").value = "";
+    loadManageUsers();
+  }
+}
+
+// Export CSV
+function csvEscape(s) {
+  s = String(s ?? "");
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+async function exportCSV() {
+  toast("Exporting...", "keep");
+  const { data: matches, error } = await state.supabase.from('matches').select('*').order('played_at', { ascending: true });
+  if (error) return toast("Error fetching matches", "fail");
+  if (!matches || !matches.length) return toast("No matches found", "fail");
+  
+  // Create CSV String
+  let csv = "ID,Date,Participants,Winner,Turn,WinCondition,GameType\n";
+  matches.forEach(m => {
+    // Convert participants array to a readable string or keep as JSON?
+    // Let's format participants as "P1 (D1) | P2 (D2)..."
+    const parts = m.participants.filter(p => p.player).map(p => `${p.player} (${p.deck})`).join(" | ");
+    const row = [
+      m.id,
+      m.played_at,
+      parts,
+      m.winner,
+      m.turn || "",
+      m.win_condition || "",
+      m.game_type
+    ];
+    csv += row.map(csvEscape).join(",") + "\n";
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", `edhtrack_matches_${new Date().toISOString().slice(0,10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Start
+document.addEventListener("DOMContentLoaded", boot);
+
 </script>
 </body>
 </html>
