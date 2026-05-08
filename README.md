@@ -1,5 +1,4 @@
-# EDHtrack v2
-
+# EDHtrack
 Single-file MTG / Commander match tracker. **GitHub Pages frontend + Supabase backend.**
 
 No build steps required. The app is a static HTML/JS page hosted for free on GitHub Pages, connecting to a free Supabase Postgres database. 
