@@ -3,28 +3,6 @@ Single-file MTG / Commander match tracker. **GitHub Pages frontend + Supabase ba
 
 No build steps required. The app is a static HTML/JS page hosted for free on GitHub Pages, connecting to a free Supabase Postgres database. 
 
-## Why v2? (Migration from v1)
-
-| Layer | v1 (Old) | v2 (New) |
-|---|---|---|
-| **Hosting** | GitHub Pages | GitHub Pages (unchanged) |
-| **Auth** | `users.csv` plaintext + GitHub PAT | Supabase GoTrue, GitHub/Discord/Google/Apple OAuth |
-| **Data** | CSV files via GitHub API | Supabase Postgres tables |
-| **Secrets** | Fine-grained PAT in `localStorage` | Supabase Anon Key in `localStorage` (Public by design) |
-
-**Problems with v1:**
-- `users.csv` contained plaintext passwords and was publicly accessible.
-- Users had to generate complex GitHub PATs just to use the app.
-- No real login flow, just a "bike lock".
-- Querying CSV data for stats was painful.
-
-**Benefits of v2:**
-- True OAuth instead of plaintext passwords.
-- No PATs required for other players. They just click "Login with GitHub" and the Admin whitelists them.
-- Row Level Security (RLS) handles permissions securely on the database side.
-- You can query stats directly in Supabase using SQL.
-- CSV Exports are still easily available via the UI or Supabase Dashboard.
-
 ## Security Model
 
 **The Supabase Anon Key is PUBLIC.**
