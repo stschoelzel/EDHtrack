@@ -97,7 +97,7 @@ GitHub → Settings → Developer settings → Personal access tokens → Fine-g
 Because the token is repo-scoped, the damage is strictly bounded. Here is the **Worst Case Scenario**:
 
 *   **Data Corruption:** Someone could steal, delete, or mess with your `matches.csv`. Since it's just match data—**so what?** It’s annoying, but not a life-altering event.
-*   **Page Hijacking:** Since the token has write-access, an attacker could replace `index.html` with a malicious version. If your friends use the site, the hijacked page could try to phish their app-passwords (the "bike lock" credentials).
+*   **Page Hijacking:** Since the token has write-access, an attacker could replace `index.html` with a malicious version. If your friends use the site, the hijacked page could try to phish their app-passwords or worse...
 *   **Your Account Stays Safe:** This is the most important part. Because you used a **fine-grained token**, the attacker has **ZERO access** to your other repositories, your private emails, your billing info, or your account settings. 
 
 The "blast radius" is limited to your garden shed (this repo), while your main house (your GitHub account) remains locked and secure.
