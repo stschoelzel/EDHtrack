@@ -175,6 +175,14 @@
             $("login-discord-btn").addEventListener("click", () => doLogin("discord"));
             $("login-google-btn").addEventListener("click", () => doLogin("google"));
             $("login-reset-cfg-btn").addEventListener("click", resetSetup);
+
+            const wm = document.querySelector('.wordmark');
+            if (wm) {
+                wm.style.cursor = 'pointer';
+                wm.addEventListener('click', () => {
+                    window.location.href = resolveAppUrl('tracker.html');
+                });
+            }
         }
 
         document.addEventListener("DOMContentLoaded", boot);

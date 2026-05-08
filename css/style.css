@@ -120,6 +120,10 @@ header.brand {
     text-shadow: 0 0 40px rgba(253, 110, 208, 0.25);
 }
 
+.wordmark {
+    cursor: pointer;
+}
+
 .subtitle {
     margin-top: 0.75rem;
     font-family: var(--mono);

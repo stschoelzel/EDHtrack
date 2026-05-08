@@ -156,6 +156,14 @@
 
             $("manager-who").textContent = context.allowed.display_name + (context.allowed.is_admin ? " (Admin)" : "");
 
+            const wm = document.querySelector('.wordmark');
+            if (wm) {
+                wm.style.cursor = 'pointer';
+                wm.addEventListener('click', () => {
+                    window.location.href = resolveAppUrl('tracker.html');
+                });
+            }
+
             $("back-to-main-btn").addEventListener("click", () => {
                 window.location.href = resolveAppUrl("tracker.html");
             });

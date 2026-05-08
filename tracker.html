@@ -407,6 +407,14 @@
 
             $("who").textContent = context.allowed.display_name + (state.isAdmin ? " (Admin)" : "");
 
+            const wm = document.querySelector('.wordmark');
+            if (wm) {
+                wm.style.cursor = 'pointer';
+                wm.addEventListener('click', () => {
+                    window.location.href = resolveAppUrl('tracker.html');
+                });
+            }
+
             $("add-player").addEventListener("click", () => {
                 if (state.rows.length < MAX_PLAYERS) {
                     state.rows.push({ player: "", deck: "" });
