@@ -64,7 +64,7 @@
 
     </div>
 
-    <div id="confirm-popup" class="confirm-popup" aria-hidden="true">
+    <div id="confirm-popup" class="confirm-popup" aria-hidden="true" hidden>
         <div class="confirm-popup__panel" role="dialog" aria-modal="true" aria-labelledby="confirm-popup-title">
             <h2 id="confirm-popup-title" class="confirm-popup__title">Missing Fields</h2>
             <ul id="confirm-warnings" class="confirm-popup__list"></ul>
@@ -144,6 +144,7 @@
             const list = $("confirm-warnings");
 
             list.innerHTML = missingFields.map(field => `<li>${escapeHtml(field)}</li>`).join("");
+            popup.hidden = false;
             popup.classList.add("is-open");
             popup.setAttribute("aria-hidden", "false");
         }
@@ -152,6 +153,7 @@
             const popup = $("confirm-popup");
             popup.classList.remove("is-open");
             popup.setAttribute("aria-hidden", "true");
+            popup.hidden = true;
         }
 
         function getMissingFields() {
