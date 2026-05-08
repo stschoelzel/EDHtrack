@@ -167,3 +167,6 @@ create policy "read for allowed" on win_conditions for select
   using (auth.uid() in (select user_id from allowed_users));
 create policy "insert for allowed" on win_conditions for insert
   with check (auth.uid() in (select user_id from allowed_users));
+
+-- Grants
+grant all privileges on all tables in schema public to anon, authenticated;

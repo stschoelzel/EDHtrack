@@ -552,7 +552,7 @@ async function boot() {
         .is('owner_github_login', null);
       
       const { data, error } = await sb.from('app_config').select('owner_github_login').single();
-      if (error) throw new Error("Could not read app_config. Check URL, Key and Database Schema.");
+      if (error) throw new Error("Database Error: " + error.message + " (Code: " + error.code + ")");
       
       saveConfig({ url, key, owner: data.owner_github_login || owner });
       state.supabase = sb;
