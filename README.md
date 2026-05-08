@@ -15,7 +15,13 @@ Read this before setting up.
 
 ### 1. Fork this repo
 
-Fork on GitHub. Public or private — your choice. Match data is not sensitive.
+**Fork this repository on GitHub and set it to PRIVATE.**
+
+While the app handles your GitHub Token securely (local storage only), the app-level login credentials in `users.csv` are stored in plaintext. We view this login as a **"cheap bike lock"**:
+
+*   **The Reality:** Plaintext passwords in a CSV are a security nightmare by professional standards.
+*   **Our Philosophy:** Since this is just match data and deck lists, there is nothing of value to steal. The login is a minimal hurdle designed to keep random internet strangers from messing with your stats—it’s not meant to stop someone dedicated.
+*   **The Fix:** Simply keep your fork **private**. That way, only you can see your "bike lock" combination, and the simplicity of the system remains intact without needing a complex database or hashing logic.
 
 ### 2. Create a fine-grained Personal Access Token
 
@@ -86,4 +92,12 @@ Up to 6 players per match. Empty slots for shorter games. `Winner` is the player
 
 ## If a token leaks
 
-GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → **Revoke**. Generate a new one, tap **Reset Setup** in the app, paste the new token. Done. Because the token is repo-scoped, the damage is bounded to this repo only.
+GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → **Revoke**. Generate a new one, tap **Reset Setup** in the app, and paste the new token. 
+
+Because the token is repo-scoped, the damage is strictly bounded. Here is the **Worst Case Scenario**:
+
+*   **Data Corruption:** Someone could steal, delete, or mess with your `matches.csv`. Since it's just match data—**so what?** It’s annoying, but not a life-altering event.
+*   **Page Hijacking:** Since the token has write-access, an attacker could replace `index.html` with a malicious version. If your friends use the site, the hijacked page could try to phish their app-passwords (the "bike lock" credentials).
+*   **Your Account Stays Safe:** This is the most important part. Because you used a **fine-grained token**, the attacker has **ZERO access** to your other repositories, your private emails, your billing info, or your account settings. 
+
+The "blast radius" is limited to your garden shed (this repo), while your main house (your GitHub account) remains locked and secure.
