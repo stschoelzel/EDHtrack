@@ -59,7 +59,10 @@ create table matches (
 );
 
 -- Trigger: beim auth.users-Insert prüfen ob (a) Repo-Owner → Admin, oder (b) in pending_invites → User
-create or replace function handle_new_user() returns trigger as $$
+create or replace function public.handle_new_user() returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
 declare
   v_provider text;
   v_identifier text;
@@ -71,7 +74,7 @@ begin
   -- Identifier je Provider extrahieren
   v_identifier := case v_provider
     when 'github'  then new.raw_user_meta_data->>'user_name'
-    when 'discord' then new.raw_user_meta_data->>'custom_claims'->>'global_name' -- fallback for discord username
+    when 'discord' then new.raw_user_meta_data->'custom_claims'->>'global_name' -- fallback for discord username
     when 'google'  then new.email
     when 'apple'   then new.email
     else null
@@ -101,7 +104,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql security definer;
+$$;
 
 -- Trigger erstellen
 drop trigger if exists on_auth_user_created on auth.users;
@@ -126,7 +129,8 @@ create policy "app_config is readable by everyone" on app_config for select
 create policy "app_config is writable by admins" on app_config for update
   using (auth.uid() in (select user_id from allowed_users where is_admin));
 create policy "app_config initial setup" on app_config for update
-  using (owner_github_login is null);
+  using (owner_github_login is null)
+  with check (true);
 
 -- Policies: pending_invites
 create policy "pending_invites readable by admins" on pending_invites for select
@@ -137,9 +141,13 @@ create policy "pending_invites deletable by admins" on pending_invites for delet
   using (auth.uid() in (select user_id from allowed_users where is_admin));
 
 -- Policies: allowed_users
-create policy "allowed_users is readable by allowed users" on allowed_users for select
-  using (auth.uid() in (select user_id from allowed_users));
-create policy "allowed_users is manageable by admins" on allowed_users for all
+create policy "allowed_users is readable by authenticated" on allowed_users for select
+  using (auth.role() = 'authenticated');
+create policy "allowed_users is manageable by admins (insert)" on allowed_users for insert
+  with check (auth.uid() in (select user_id from allowed_users where is_admin));
+create policy "allowed_users is manageable by admins (update)" on allowed_users for update
+  using (auth.uid() in (select user_id from allowed_users where is_admin));
+create policy "allowed_users is manageable by admins (delete)" on allowed_users for delete
   using (auth.uid() in (select user_id from allowed_users where is_admin));
 
 -- Policies: data tables (matches, players, decks, game_types, win_conditions)

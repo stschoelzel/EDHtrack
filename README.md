@@ -5,11 +5,11 @@ No build steps required. The app is a static HTML/JS page hosted for free on Git
 
 ## Security Model
 
-**The Supabase Anon Key is PUBLIC.**
-You will paste the Anon Key and the Supabase URL into the Setup screen. It is saved in your browser's `localStorage` and will be sent with every request. **This is completely safe and by design.** 
+**The Supabase Publishable Key is PUBLIC.**
+You will paste the Publishable Key and the Supabase URL into the Setup screen. It is saved in your browser's `localStorage` and will be sent with every request. **This is completely safe and by design.** 
 
 Supabase uses **Row Level Security (RLS)** in Postgres.
-This means the Anon Key alone gives an attacker **zero** ability to read or write data unless they are an authenticated user explicitly listed in the `allowed_users` table. Even if the key is extracted from your frontend, the RLS policies act as an unbreakable shield. 
+This means the Publishable Key alone gives an attacker **zero** ability to read or write data unless they are an authenticated user explicitly listed in the `allowed_users` table. Even if the key is extracted from your frontend, the RLS policies act as an unbreakable shield. 
 
 * The database knows who the user is via OAuth.
 * RLS checks if the user is in `allowed_users`.
@@ -59,7 +59,7 @@ Wait a minute and open your live site URL.
 
 ### 9. Complete App Setup
 1. Open the app on your phone or desktop.
-2. The **Setup Screen** will ask for your Supabase Project URL, your Anon Key (find these in Supabase Dashboard → Settings → API), and your GitHub Username.
+2. The **Setup Screen** will ask for your Supabase Project URL, your Publishable Key (find these in Supabase Dashboard → Settings → API), and your GitHub Username.
 3. Click Connect. The app will save the URL and Key locally and register you as the owner in the database.
 4. Click **Login with GitHub**. You will automatically be granted Admin rights!
 
@@ -93,7 +93,7 @@ All schema definitions are located in [`supabase/schema.sql`](supabase/schema.sq
 
 - **Supabase Free Tier**: Free tier projects are paused after 1 week of zero activity. You will need to log into the Supabase Dashboard to unpause it if you haven't played Magic in a while.
 - **OAuth Redirects**: If your GitHub Pages URL changes, you MUST update the Site URL in the Supabase Dashboard, or login will fail.
-- **Anon Key**: It is public. Do not panic if you see it in your browser console.
+- **Publishable Key**: It is public. Do not panic if you see it in your browser console.
 
 ## If something goes wrong
 
