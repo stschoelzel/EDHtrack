@@ -64,17 +64,13 @@
 
     </div>
 
-    <div id="confirm-popup"
-        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
-        <div
-            style="background:var(--surface); padding:2rem; border-radius:8px; border:1px solid var(--ghost-border); max-width:400px; width:90%;">
-            <h2 style="color:var(--fail); margin-top:0;">Missing Fields</h2>
-            <ul id="confirm-warnings" style="color:var(--pending); padding-left:1.5rem; margin-bottom:2rem;"></ul>
-            <div style="display:flex; justify-content:space-between; gap:1rem;">
-                <button id="confirm-ops" class="primary"
-                    style="background:transparent; border-color:var(--fail); color:var(--fail);">Ops..</button>
-                <button id="confirm-fine" class="primary"
-                    style="background:transparent; border-color:var(--keep); color:var(--keep);">Its fine</button>
+    <div id="confirm-popup" class="confirm-popup" aria-hidden="true">
+        <div class="confirm-popup__panel" role="dialog" aria-modal="true" aria-labelledby="confirm-popup-title">
+            <h2 id="confirm-popup-title" class="confirm-popup__title">Missing Fields</h2>
+            <ul id="confirm-warnings" class="confirm-popup__list"></ul>
+            <div class="confirm-popup__actions">
+                <button id="confirm-ops" class="confirm-popup__button confirm-popup__button--oops">Oops..</button>
+                <button id="confirm-fine" class="confirm-popup__button confirm-popup__button--fine">It's fine</button>
             </div>
         </div>
     </div>
@@ -100,6 +96,8 @@
             winners: [0],
             isDraw: false,
         };
+
+        let forceSubmitAsIs = false;
 
         const $ = (id) => document.getElementById(id);
 
@@ -139,6 +137,37 @@
         function renderDatalists() {
             fillDatalist("dl-gametypes", state.gameTypes);
             fillDatalist("dl-winconds", state.winConditions);
+        }
+
+        function showMissingFieldsPopup(missingFields) {
+            const popup = $("confirm-popup");
+            const list = $("confirm-warnings");
+
+            list.innerHTML = missingFields.map(field => `<li>${escapeHtml(field)}</li>`).join("");
+            popup.classList.add("is-open");
+            popup.setAttribute("aria-hidden", "false");
+        }
+
+        function hideMissingFieldsPopup() {
+            const popup = $("confirm-popup");
+            popup.classList.remove("is-open");
+            popup.setAttribute("aria-hidden", "true");
+        }
+
+        function getMissingFields() {
+            const missing = [];
+
+            state.rows.forEach((row, idx) => {
+                const rowNumber = idx + 1;
+                if (!row.player.trim()) missing.push(`Player ${rowNumber} name`);
+                if (!row.deck.trim()) missing.push(`Player ${rowNumber} deck`);
+            });
+
+            if (!$("game-type").value.trim()) missing.push("Game Type");
+            if (!$("turn").value.trim()) missing.push("Turn");
+            if (!$("win-cond").value.trim()) missing.push("Winning Condition");
+
+            return missing;
         }
 
         function updateRowDatalists() {
@@ -270,13 +299,10 @@
         }
 
         async function submitMatch() {
-            const filled = state.rows.filter(r => r.player.trim() && r.deck.trim());
-            if (filled.length < 2) return toast("Need at least 2 players with player + deck.", "fail");
-
-            if (state.winners.length === 0) return toast("Select at least one winner.", "fail");
-            for (const idx of state.winners) {
-                const w = state.rows[idx];
-                if (!w || !w.player.trim()) return toast("Selected winner row needs a player.", "fail");
+            const missingFields = forceSubmitAsIs ? [] : getMissingFields();
+            if (missingFields.length) {
+                showMissingFieldsPopup(missingFields);
+                return;
             }
 
             const gameType = $("game-type").value.trim();
@@ -287,22 +313,23 @@
             $("submit-btn").textContent = "Submitting...";
 
             try {
-                const newP = filled.map(r => ({ name: r.player.trim() }));
-                const newD = filled.map(r => ({ name: r.deck.trim() }));
+                const newP = Array.from(new Set(state.rows.map(r => r.player.trim()).filter(Boolean))).map(name => ({ name }));
+                const newD = Array.from(new Set(state.rows.map(r => r.deck.trim()).filter(Boolean))).map(name => ({ name }));
                 if (newP.length) await state.supabase.from('players').upsert(newP, { onConflict: 'name', ignoreDuplicates: true });
                 if (newD.length) await state.supabase.from('decks').upsert(newD, { onConflict: 'name', ignoreDuplicates: true });
-                await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
+                if (gameType) {
+                    await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
+                }
                 if (winCond) {
                     await state.supabase.from('win_conditions').upsert([{ name: winCond }], { onConflict: 'name', ignoreDuplicates: true });
                 }
 
                 const participants = state.rows.map(r => {
-                    if (!r.player.trim() && !r.deck.trim()) return null;
                     return {
                         player: r.player.trim(),
                         deck: r.deck.trim()
                     };
-                }).filter(Boolean);
+                });
 
                 const winnerNames = state.winners.map(idx => state.rows[idx].player.trim()).join(", ");
 
@@ -327,6 +354,7 @@
             } finally {
                 $("submit-btn").disabled = false;
                 $("submit-btn").textContent = "Submit Match";
+                forceSubmitAsIs = false;
             }
         }
 
@@ -384,11 +412,23 @@
                 }
             });
             $("reset-btn").addEventListener("click", resetForm);
-            $("submit-btn").addEventListener("click", submitMatch);
+            $("submit-btn").addEventListener("click", () => {
+                forceSubmitAsIs = false;
+                submitMatch();
+            });
             $("show-stats-btn").addEventListener("click", () => toast("Stats coming soon", "keep"));
             $("export-csv-btn").addEventListener("click", exportCSV);
             $("main-logout-btn").addEventListener("click", handleLogout);
             $("data-user-management-btn").addEventListener("click", goToManagerPage);
+            $("confirm-ops").addEventListener("click", hideMissingFieldsPopup);
+            $("confirm-fine").addEventListener("click", async () => {
+                hideMissingFieldsPopup();
+                forceSubmitAsIs = true;
+                await submitMatch();
+            });
+            $("confirm-popup").addEventListener("click", (e) => {
+                if (e.target.id === "confirm-popup") hideMissingFieldsPopup();
+            });
 
             document.addEventListener('focusin', e => {
                 if (e.target.tagName === 'INPUT' && e.target.getAttribute('list')) {

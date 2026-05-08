@@ -456,3 +456,80 @@ code {
 .list-item:last-child {
     border-bottom: none;
 }
+
+.confirm-popup {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(0, 0, 0, 0.82);
+    z-index: 9999;
+    backdrop-filter: blur(3px);
+}
+
+.confirm-popup.is-open {
+    display: flex;
+}
+
+.confirm-popup__panel {
+    width: min(100%, 28rem);
+    background: linear-gradient(180deg, var(--surface-low), var(--surface));
+    border: 1px solid var(--ghost-border);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    padding: 1.5rem;
+}
+
+.confirm-popup__title {
+    margin: 0 0 1rem;
+    color: var(--fail);
+    font-family: var(--display);
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    text-transform: none;
+}
+
+.confirm-popup__list {
+    margin: 0 0 1.5rem;
+    padding-left: 1.25rem;
+    color: var(--pending);
+    font-family: var(--body);
+    font-size: 0.95rem;
+}
+
+.confirm-popup__list li+li {
+    margin-top: 0.35rem;
+}
+
+.confirm-popup__actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.confirm-popup__button {
+    flex: 1;
+    min-width: 140px;
+    background: transparent;
+}
+
+.confirm-popup__button--oops {
+    border-color: var(--fail);
+    color: var(--fail);
+}
+
+.confirm-popup__button--fine {
+    border-color: var(--keep);
+    color: var(--keep);
+}
+
+.confirm-popup__button--oops:hover {
+    background: rgba(253, 110, 208, 0.08);
+}
+
+.confirm-popup__button--fine:hover {
+    background: rgba(137, 240, 203, 0.08);
+}
