@@ -9,38 +9,62 @@ Read this before setting up.
 - **The GitHub token and your username are NEVER committed to the repo.** They are entered once on the Setup screen and stored in your browser's `localStorage`. They live on your device only.
 - **Use a fine-grained Personal Access Token scoped to this single repo.** Not a classic token, not an org-wide token, not a token with `repo` scope across all your repos. Just this one repo.
 - **Repo-only token, repo-only token, repo-only token.** If the token leaks (e.g. someone gets your phone unlocked), the blast radius is limited to this one repo of match data — nothing else in your GitHub account.
-- App-login credentials in `users.csv` are plaintext on purpose. They gate access to the form, not anything sensitive. Low-priority by design.
+- **GitHub Pages publishes everything in the repo as static files** — including `users.csv`. Even if your repo is private, the Pages URL is public, and anyone who guesses or finds `https://<user>.github.io/<repo>/users.csv` can read the plaintext credentials. Treat the app login as a **"cheap bike lock"**: it stops casual passers-by, not a determined attacker. Use a unique password you don't reuse elsewhere.
 
 ## Setup
 
 ### 1. Fork this repo
 
-**Fork this repository on GitHub and set it to PRIVATE.**
+**Fork on GitHub. Setting the fork to PRIVATE is recommended** — it hides your match history, deck list, and source code from random visitors browsing GitHub.
 
-While the app handles your GitHub Token securely (local storage only), the app-level login credentials in `users.csv` are stored in plaintext. We view this login as a **"cheap bike lock"**:
+But know this: **a private repo does not make your Pages site private.** Once Pages is enabled (step 4), `https://<user>.github.io/<repo>/users.csv` is reachable by anyone who knows the URL. So:
 
 *   **The Reality:** Plaintext passwords in a CSV are a security nightmare by professional standards.
-*   **Our Philosophy:** Since this is just match data and deck lists, there is nothing of value to steal. The login is a minimal hurdle designed to keep random internet strangers from messing with your stats—it’s not meant to stop someone dedicated.
-*   **The Fix:** Simply keep your fork **private**. That way, only you can see your "bike lock" combination, and the simplicity of the system remains intact without needing a complex database or hashing logic.
+*   **Our Philosophy:** This is just match data and deck lists — nothing valuable to steal. The login is a minimal hurdle to keep random internet strangers from messing with your stats — it’s not meant to stop someone dedicated.
+*   **The Fix:** Use a unique password (don't reuse one from your email, bank, etc.). Keep the repo private so your URL isn't trivially discoverable.
 
 ### 2. Create a fine-grained Personal Access Token
 
-GitHub → Settings → Developer settings → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+Go to GitHub → click your avatar → **Settings** → **Developer settings** (left side, very bottom) → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
 
-Configure exactly like this:
+The form has several sections — fill them as follows:
 
-| Setting | Value |
+#### 2a. Basics
+
+| Field | Value |
 |---|---|
-| Token name | `edhtrack` (or whatever) |
-| Expiration | up to you — short is safer |
-| Resource owner | your account |
-| **Repository access** | **Only select repositories** → pick **this fork only** |
-| **Repository permissions** | **Contents: Read and write** |
-| All other permissions | leave as `No access` |
+| Token name | `edhtrack` (or whatever helps you remember) |
+| Expiration | up to you — shorter is safer (90 days is a good default) |
+| Description | optional |
+| Resource owner | **your account** (not an org) |
 
-Copy the token. It starts with `github_pat_…`.
+#### 2b. Repository access
 
-> **Do NOT** create a classic token. Do NOT pick "All repositories". Do NOT grant any permission other than `Contents: Read and write`. Repeat: token must be scoped to this **single** repo, with **only** Contents read/write.
+This is where you pick **which** repos the token can touch.
+
+- Select **Only select repositories**.
+- A repository picker appears. Search for and select **only your `EDHtrack` fork**. Nothing else.
+- Do **NOT** pick "All repositories" or "Public repositories".
+
+#### 2c. Repository permissions
+
+This is where you pick **what** the token can do.
+
+Scroll down to the **Repository permissions** section and set:
+
+| Permission | Value |
+|---|---|
+| **Contents** | **Read and write** ← this is the one the app needs |
+| **Metadata** | **Read-only** ← already there, can't be turned off, this is normal |
+| All other permissions | leave at **No access** |
+
+> "Metadata: Read-only" is **mandatory** for any fine-grained token and is added automatically — that's expected, not a misconfiguration. It just lets GitHub identify which repo the token belongs to.
+
+#### 2d. Generate and copy
+
+Click **Generate token**. Copy the token (it starts with `github_pat_…`). You'll paste it into the app's Setup screen later. **GitHub only shows the token once** — if you lose it, generate a new one.
+
+> **Do NOT** create a classic token. Do NOT pick "All repositories". Do NOT grant any permission other than Contents (read/write) and the auto-included Metadata (read-only). Repeat: token must be scoped to this **single** repo, with **only** Contents read/write.
 
 ### 3. Edit `users.csv`
 
@@ -53,7 +77,17 @@ Commit and push.
 
 ### 4. Enable GitHub Pages
 
-Repo → Settings → Pages → Source: **Deploy from a branch** → Branch: `main`, folder: `/ (root)` → Save. Wait ~1 min, copy the published URL.
+Go to your fork → **Settings** → **Pages** (left sidebar).
+
+1. **Build and deployment → Source**: select **Deploy from a branch** (the other option, "GitHub Actions", is not what we want — we ship a plain static `index.html`, no build step).
+2. **Branch**: select **`main`**, folder **`/ (root)`** → click **Save**.
+3. GitHub will show a warning that **your site will be publicly available on the internet, even if your repository is private**. This is expected — see the security model section above. Confirm.
+4. Wait ~1 minute. Refresh the Pages settings page. A box at the top will show:
+   > **Your site is live at https://&lt;your-username&gt;.github.io/EDHtrack/**
+
+That's your URL. Open it on phone, desktop, anywhere. Bookmark it.
+
+> If your repo is named something other than `EDHtrack`, the URL is `https://<your-username>.github.io/<repo-name>/`. Use that name when entering "Repo Name" on the app's Setup screen too.
 
 ### 5. Open the URL on your phone
 
@@ -62,6 +96,14 @@ Repo → Settings → Pages → Source: **Deploy from a branch** → Branch: `ma
 - Done. Submit matches with your thumb.
 
 If you ever want to wipe the device's stored token: tap **Reset Setup** in the top bar, or clear browser storage for the page.
+
+## Gotchas
+
+- **Token expiration**: when the PAT expires, the app silently fails on submit (401 from GitHub). Generate a new token and tap **Reset Setup** in the app.
+- **Incognito / private browsing**: `localStorage` is wiped when the tab closes. You'll re-enter the token each session.
+- **Browser cache after updates**: after pushing a new `index.html`, GitHub Pages can serve the old version for up to a few minutes. Hard-reload (Ctrl+Shift+R / long-press reload on mobile) if something looks off.
+- **`users.csv` lives in git history forever**: if you commit a real password and later change it, the old one is still recoverable from `git log`. If a password leaks, rotate it AND assume the old one is permanently exposed in history.
+- **Multiple devices**: each device needs Setup once. Tokens are not synced — that's the whole point.
 
 ## How it works
 

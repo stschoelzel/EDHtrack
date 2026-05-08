@@ -555,11 +555,16 @@ function csvLine(values) { return values.map(csvEscape).join(","); }
 async function tryLogin(user, pass) {
   const r = await ghGet("users.csv");
   if (r.missing) throw new Error("users.csv not found in repo");
-  const { rows } = parseCsv(r.content);
+  // strip UTF-8 BOM if present
+  const text = r.content.replace(/^﻿/, "");
+  const { rows } = parseCsv(text);
+  const u0 = user.trim();
+  const p0 = pass.trim();
   for (const row of rows) {
     const u = (row[0] || "").trim();
     const p = (row[1] || "").trim();
-    if (u === user && p === pass) return true;
+    if (!u) continue;
+    if (u === u0 && p === p0) return true;
   }
   return false;
 }
