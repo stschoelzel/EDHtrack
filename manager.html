@@ -43,6 +43,13 @@
                     </select>
                 </div>
                 <div class="field" style="margin-top:0.75rem">
+                    <select id="invite-role">
+                        <option value="user">User (Track only)</option>
+                        <option value="editor">Editor (Add templates)</option>
+                        <option value="admin">Admin (Manage all)</option>
+                    </select>
+                </div>
+                <div class="field" style="margin-top:0.75rem">
                     <input id="invite-identifier" type="text" placeholder="Username or Email" />
                 </div>
                 <div class="actions">
@@ -59,6 +66,14 @@
                 <label>Allowed Users</label>
                 <div id="allowed-list" class="muted">Loading...</div>
             </div>
+
+            <div class="panel" id="data-list-panel" style="display:none;">
+                <div class="topbar" style="margin-bottom: 1rem;">
+                    <label id="data-list-title"></label>
+                    <button id="close-data-list-btn" class="ghost">Back to Tools</button>
+                </div>
+                <div id="data-rows" class="muted">Loading...</div>
+            </div>
         </section>
 
     </div>
@@ -72,6 +87,7 @@
             supabase: null,
             session: null,
             allowed: null,
+            role: null,
         };
 
         function toast(msg, kind = "") {
@@ -103,7 +119,7 @@
                 inv.forEach(i => {
                     const d = document.createElement("div");
                     d.className = "list-item";
-                    d.innerHTML = `<span><b>${escapeHtml(i.provider)}:</b> ${escapeHtml(i.identifier)}</span> <button data-id="${i.id}" class="row-remove">Remove</button>`;
+                    d.innerHTML = `<span><b>${escapeHtml(i.provider)}:</b> ${escapeHtml(i.identifier)} <i>(${escapeHtml(i.role)})</i></span> <button data-id="${i.id}" class="row-remove">Remove</button>`;
                     invDiv.appendChild(d);
                 });
                 invDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
@@ -122,9 +138,18 @@
                     const d = document.createElement("div");
                     d.className = "list-item";
                     const providerLabel = a.provider ? a.provider.toUpperCase() : "UNKNOWN";
-                    d.innerHTML = `<span>${escapeHtml(a.display_name)} ${a.is_admin ? '(Admin)' : ''}</span><span class="muted">${escapeHtml(providerLabel)}</span>`;
+                    d.innerHTML = `<span>${escapeHtml(a.display_name)} <i>(${escapeHtml(a.role)})</i></span> ${a.user_id !== state.session.user.id && state.role === "admin" ? `<button data-id="${a.user_id}" class="row-remove allowed-remove">Remove</button>` : '<span class="muted">'+escapeHtml(providerLabel)+'</span>'}`;
+
                     allDiv.appendChild(d);
                 });
+
+                allDiv.querySelectorAll('.allowed-remove').forEach(btn => btn.addEventListener('click', async (e) => {
+                    const id = e.target.dataset.id;
+                    if(confirm("Are you sure you want to remove this user?")) {
+                       await state.supabase.from('allowed_users').delete().eq('user_id', id);
+                       loadManageUsers();
+                    }
+                }));
             } else {
                 allDiv.textContent = "No allowed users.";
             }
@@ -133,9 +158,10 @@
         async function addInvite() {
             const provider = $("invite-provider").value;
             const identifier = $("invite-identifier").value.trim();
+            const role = $("invite-role").value;
             if (!identifier) return toast("Identifier required", "fail");
 
-            const { error } = await state.supabase.from('pending_invites').insert([{ provider, identifier }]);
+            const { error } = await state.supabase.from('pending_invites').insert([{ provider, identifier, role }]);
             if (error) {
                 if (error.code === '23505') toast("Invite already exists", "fail");
                 else toast(error.message, "fail");
@@ -143,6 +169,45 @@
                 toast("Invited", "keep");
                 $("invite-identifier").value = "";
                 loadManageUsers();
+            }
+        }
+
+
+        async function renderDataList(tableName, title) {
+            if (state.role !== 'admin') return toast("Only admins can manage data", "fail");
+            $("data-list-panel").style.display = "block";
+            $("data-list-title").textContent = title;
+            $("data-rows").innerHTML = "Loading...";
+
+            const { data, error } = await state.supabase.from(tableName).select('*').order('name');
+            if (error) {
+                $("data-rows").innerHTML = "Error loading data.";
+                return toast(error.message, "fail");
+            }
+
+            const rowsDiv = $("data-rows");
+            rowsDiv.innerHTML = "";
+            if (data && data.length) {
+                data.forEach(item => {
+                    const d = document.createElement("div");
+                    d.className = "list-item";
+                    d.innerHTML = `<span>${escapeHtml(item.name)}</span> <button data-id="${item.id}" class="row-remove">Delete</button>`;
+                    rowsDiv.appendChild(d);
+                });
+
+                rowsDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
+                    const id = e.target.dataset.id;
+                    if (confirm("Delete this item? This may fail if it is used in matches.")) {
+                        const { error: delErr } = await state.supabase.from(tableName).delete().eq('id', id);
+                        if (delErr) {
+                            toast(delErr.message, "fail");
+                        } else {
+                            renderDataList(tableName, title);
+                        }
+                    }
+                }));
+            } else {
+                rowsDiv.textContent = "No entries found.";
             }
         }
 
@@ -154,7 +219,8 @@
             state.session = context.session;
             state.allowed = context.allowed;
 
-            $("manager-who").textContent = context.allowed.display_name + (context.allowed.is_admin ? " (Admin)" : "");
+            state.role = context.allowed.role;
+            $("manager-who").textContent = context.allowed.display_name + (state.role === "admin" ? " (Admin)" : state.role === "editor" ? " (Editor)" : "");
 
             const wm = document.querySelector('.wordmark');
             if (wm) {
@@ -167,10 +233,13 @@
             $("back-to-main-btn").addEventListener("click", () => {
                 window.location.href = resolveAppUrl("tracker.html");
             });
-            $("edit-decks-btn").addEventListener("click", () => toast("Edit Decks coming soon", "keep"));
-            $("edit-players-btn").addEventListener("click", () => toast("Edit Players coming soon", "keep"));
-            $("edit-game-types-btn").addEventListener("click", () => toast("Edit Game Types coming soon", "keep"));
-            $("edit-win-conditions-btn").addEventListener("click", () => toast("Edit Winning Conditions coming soon", "keep"));
+            $("edit-decks-btn").addEventListener("click", () => renderDataList("decks", "Manage Decks"));
+            $("close-data-list-btn").addEventListener("click", () => $("data-list-panel").style.display = "none");
+            $("edit-players-btn").addEventListener("click", () => renderDataList("players", "Manage Players"));
+            $("edit-game-types-btn").addEventListener("click", () => renderDataList("game_types", "Manage Game Types"));
+            $("edit-win-conditions-btn").addEventListener("click", () => renderDataList("win_conditions", "Manage Winning Conditions"));
+
+            if (state.role !== "admin") { document.querySelectorAll(".admin-tools-grid").forEach(el => el.style.display = "none"); }
             $("invite-btn").addEventListener("click", addInvite);
 
             await loadManageUsers();
