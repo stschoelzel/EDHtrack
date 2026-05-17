@@ -73,7 +73,7 @@ export function resolveAppUrl(path) {
 async function loadAllowedProfile(client, userId) {
     let { data: allowed, error } = await client
         .from("allowed_users")
-        .select("display_name, is_admin")
+        .select("display_name, role")
         .eq("user_id", userId)
         .single();
 
@@ -82,7 +82,7 @@ async function loadAllowedProfile(client, userId) {
         if (bootstrapSuccess) {
             const retry = await client
                 .from("allowed_users")
-                .select("display_name, is_admin")
+                .select("display_name, role")
                 .eq("user_id", userId)
                 .single();
             allowed = retry.data;

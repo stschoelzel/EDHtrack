@@ -87,7 +87,7 @@
         const state = {
             supabase: null,
             session: null,
-            isAdmin: false,
+            role: null,
             players: [],
             decks: [],
             gameTypes: [],
@@ -311,19 +311,32 @@
             const winCond = $("win-cond").value.trim();
             const turn = parseInt($("turn").value.trim(), 10) || null;
 
+            if (state.role === 'user') {
+                const participantsMissing = state.rows.some(r => !state.players.includes(r.player.trim()) || !state.decks.includes(r.deck.trim()));
+                const gameTypeMissing = gameType && !state.gameTypes.includes(gameType);
+                const winCondMissing = winCond && !state.winConditions.includes(winCond);
+
+                if (participantsMissing || gameTypeMissing || winCondMissing) {
+                    toast("Users can only track matches with existing templates", "fail");
+                    return;
+                }
+            }
+
             $("submit-btn").disabled = true;
             $("submit-btn").textContent = "Submitting...";
 
             try {
-                const newP = Array.from(new Set(state.rows.map(r => r.player.trim()).filter(Boolean))).map(name => ({ name }));
-                const newD = Array.from(new Set(state.rows.map(r => r.deck.trim()).filter(Boolean))).map(name => ({ name }));
-                if (newP.length) await state.supabase.from('players').upsert(newP, { onConflict: 'name', ignoreDuplicates: true });
-                if (newD.length) await state.supabase.from('decks').upsert(newD, { onConflict: 'name', ignoreDuplicates: true });
-                if (gameType) {
-                    await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
-                }
-                if (winCond) {
-                    await state.supabase.from('win_conditions').upsert([{ name: winCond }], { onConflict: 'name', ignoreDuplicates: true });
+                if (state.role === 'admin' || state.role === 'editor') {
+                    const newP = Array.from(new Set(state.rows.map(r => r.player.trim()).filter(Boolean))).map(name => ({ name }));
+                    const newD = Array.from(new Set(state.rows.map(r => r.deck.trim()).filter(Boolean))).map(name => ({ name }));
+                    if (newP.length) await state.supabase.from('players').upsert(newP, { onConflict: 'name', ignoreDuplicates: true });
+                    if (newD.length) await state.supabase.from('decks').upsert(newD, { onConflict: 'name', ignoreDuplicates: true });
+                    if (gameType) {
+                        await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
+                    }
+                    if (winCond) {
+                        await state.supabase.from('win_conditions').upsert([{ name: winCond }], { onConflict: 'name', ignoreDuplicates: true });
+                    }
                 }
 
                 const participants = state.rows.map(r => {
@@ -403,9 +416,9 @@
 
             state.supabase = context.supabase;
             state.session = context.session;
-            state.isAdmin = Boolean(context.allowed?.is_admin);
+            state.role = context.allowed?.role || 'user';
 
-            $("who").textContent = context.allowed.display_name + (state.isAdmin ? " (Admin)" : "");
+            $("who").textContent = context.allowed.display_name + (state.role === "admin" ? " (Admin)" : state.role === "editor" ? " (Editor)" : "");
 
             const wm = document.querySelector('.wordmark');
             if (wm) {

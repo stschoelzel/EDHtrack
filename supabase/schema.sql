@@ -13,7 +13,7 @@ create table allowed_users (
   provider text,
   added_by uuid references auth.users(id),
   added_at timestamptz default now(),
-  is_admin boolean default false
+  role text default 'user' check (role in ('admin', 'editor', 'user'))
 );
 
 -- Pending invites: Admin trägt Identifier ein, User wird beim ersten Signin auto-zugelassen
@@ -21,6 +21,7 @@ create table pending_invites (
   id uuid primary key default gen_random_uuid(),
   provider text not null check (provider in ('github','discord','google','apple')),
   identifier text not null,                   -- github_login, discord_username, email
+  role text default 'user' check (role in ('admin', 'editor', 'user')),
   invited_by uuid references auth.users(id),
   invited_at timestamptz default now(),
   unique (provider, identifier)
@@ -69,6 +70,7 @@ declare
   v_provider text;
   v_identifier text;
   v_owner text;
+  v_role text;
 begin
   v_provider := new.raw_app_meta_data->>'provider';
   v_owner    := (select owner_github_login from app_config where id = 1);
@@ -88,20 +90,21 @@ begin
 
   -- (a) Repo-Owner via GitHub → Admin
   if v_provider = 'github' and v_identifier is not null and v_identifier = v_owner then
-    insert into allowed_users (user_id, display_name, provider, is_admin)
-    values (new.id, v_identifier, v_provider, true)
-    on conflict (user_id) do update set is_admin = true, provider = excluded.provider;
+    insert into allowed_users (user_id, display_name, provider, role)
+    values (new.id, v_identifier, v_provider, 'admin')
+    on conflict (user_id) do update set role = 'admin', provider = excluded.provider;
     return new;
   end if;
 
-  -- (b) in pending_invites → User
-  if v_identifier is not null and exists (
-    select 1 from pending_invites where provider = v_provider and identifier = v_identifier
-  ) then
-    insert into allowed_users (user_id, display_name, provider, is_admin)
-    values (new.id, v_identifier, v_provider, false)
-    on conflict (user_id) do nothing;
-    delete from pending_invites where provider = v_provider and identifier = v_identifier;
+  -- (b) in pending_invites → User/Editor/Admin
+  if v_identifier is not null then
+    select role into v_role from pending_invites where provider = v_provider and identifier = v_identifier;
+    if found then
+      insert into allowed_users (user_id, display_name, provider, role)
+      values (new.id, v_identifier, v_provider, v_role)
+      on conflict (user_id) do nothing;
+      delete from pending_invites where provider = v_provider and identifier = v_identifier;
+    end if;
   end if;
 
   return new;
@@ -129,55 +132,74 @@ alter table win_conditions  enable row level security;
 create policy "app_config is readable by everyone" on app_config for select
   using (true);
 create policy "app_config is writable by admins" on app_config for update
-  using (auth.uid() in (select user_id from allowed_users where is_admin));
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 create policy "app_config initial setup" on app_config for update
   using (owner_github_login is null)
   with check (true);
 
 -- Policies: pending_invites
 create policy "pending_invites readable by admins" on pending_invites for select
-  using (auth.uid() in (select user_id from allowed_users where is_admin));
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 create policy "pending_invites insertable by admins" on pending_invites for insert
-  with check (auth.uid() in (select user_id from allowed_users where is_admin));
+  with check (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 create policy "pending_invites deletable by admins" on pending_invites for delete
-  using (auth.uid() in (select user_id from allowed_users where is_admin));
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 
 -- Policies: allowed_users
 create policy "allowed_users is readable by authenticated" on allowed_users for select
   using (auth.role() = 'authenticated');
 create policy "allowed_users is manageable by admins (insert)" on allowed_users for insert
-  with check (auth.uid() in (select user_id from allowed_users where is_admin));
+  with check (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 create policy "allowed_users is manageable by admins (update)" on allowed_users for update
-  using (auth.uid() in (select user_id from allowed_users where is_admin));
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 create policy "allowed_users is manageable by admins (delete)" on allowed_users for delete
-  using (auth.uid() in (select user_id from allowed_users where is_admin));
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 
 -- Policies: data tables (matches, players, decks, game_types, win_conditions)
 create policy "read for allowed" on matches for select
   using (auth.uid() in (select user_id from allowed_users));
 create policy "insert for allowed" on matches for insert
   with check (auth.uid() in (select user_id from allowed_users));
+create policy "update for admin" on matches for update
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
+create policy "delete for admin" on matches for delete
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 
 create policy "read for allowed" on players for select
   using (auth.uid() in (select user_id from allowed_users));
-create policy "insert for allowed" on players for insert
-  with check (auth.uid() in (select user_id from allowed_users));
+create policy "insert for editor and admin" on players for insert
+  with check (auth.uid() in (select user_id from allowed_users where role in ('admin', 'editor')));
+create policy "update for admin" on players for update
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
+create policy "delete for admin" on players for delete
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 
 create policy "read for allowed" on decks for select
   using (auth.uid() in (select user_id from allowed_users));
-create policy "insert for allowed" on decks for insert
-  with check (auth.uid() in (select user_id from allowed_users));
+create policy "insert for editor and admin" on decks for insert
+  with check (auth.uid() in (select user_id from allowed_users where role in ('admin', 'editor')));
+create policy "update for admin" on decks for update
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
+create policy "delete for admin" on decks for delete
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 
 create policy "read for allowed" on game_types for select
   using (auth.uid() in (select user_id from allowed_users));
-create policy "insert for allowed" on game_types for insert
-  with check (auth.uid() in (select user_id from allowed_users));
+create policy "insert for editor and admin" on game_types for insert
+  with check (auth.uid() in (select user_id from allowed_users where role in ('admin', 'editor')));
+create policy "update for admin" on game_types for update
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
+create policy "delete for admin" on game_types for delete
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 
 create policy "read for allowed" on win_conditions for select
   using (auth.uid() in (select user_id from allowed_users));
-create policy "insert for allowed" on win_conditions for insert
-  with check (auth.uid() in (select user_id from allowed_users));
-
+create policy "insert for editor and admin" on win_conditions for insert
+  with check (auth.uid() in (select user_id from allowed_users where role in ('admin', 'editor')));
+create policy "update for admin" on win_conditions for update
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
+create policy "delete for admin" on win_conditions for delete
+  using (auth.uid() in (select user_id from allowed_users where role = 'admin'));
 -- Grants
 grant all privileges on all tables in schema public to anon, authenticated;
 
@@ -200,9 +222,9 @@ begin
   v_user_name := auth.jwt() -> 'user_metadata' ->> 'user_name';
 
   if v_user_name is not null and v_user_name = v_owner then
-    insert into allowed_users (user_id, display_name, provider, is_admin)
-    values (auth.uid(), v_user_name, 'github', true)
-    on conflict (user_id) do update set is_admin = true, provider = excluded.provider;
+    insert into allowed_users (user_id, display_name, provider, role)
+    values (auth.uid(), v_user_name, 'github', 'admin')
+    on conflict (user_id) do update set role = 'admin', provider = excluded.provider;
     return true;
   end if;
 
