@@ -78,6 +78,7 @@
             resolveAppUrl,
             saveConfig,
             clearConfig,
+            handleLogout,
         } from "./js/supabase-client.js";
 
         const state = { supabase: null };
@@ -108,15 +109,10 @@
             if (error) toast(error.message, "fail");
         }
 
-        async function handleLogout() {
-            if (state.supabase) await state.supabase.auth.signOut();
-            window.location.reload();
-        }
-
         async function resetSetup() {
             if (confirm("Reset setup on this device? You will need to enter the Supabase URL and Key again.")) {
                 clearConfig();
-                await handleLogout();
+                await handleLogout(state.supabase);
             }
         }
 

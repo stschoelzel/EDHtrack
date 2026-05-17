@@ -70,6 +70,11 @@ export function resolveAppUrl(path) {
     return new URL(path, window.location.href).href;
 }
 
+export async function handleLogout(supabase) {
+    if (supabase) await supabase.auth.signOut();
+    window.location.replace(resolveAppUrl("index.html"));
+}
+
 async function loadAllowedProfile(client, userId) {
     let { data: allowed, error } = await client
         .from("allowed_users")

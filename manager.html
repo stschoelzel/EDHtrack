@@ -88,11 +88,6 @@
             }[c]));
         }
 
-        async function handleLogout() {
-            if (state.supabase) await state.supabase.auth.signOut();
-            window.location.replace(resolveAppUrl("index.html"));
-        }
-
         async function loadManageUsers() {
             const { data: inv } = await state.supabase.from('pending_invites').select('*').order('invited_at', { ascending: false });
             const { data: allowed } = await state.supabase.from('allowed_users').select('*').order('added_at', { ascending: false });

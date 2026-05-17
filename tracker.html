@@ -79,7 +79,7 @@
     <datalist id="dl-decks"></datalist>
 
     <script type="module">
-        import { checkSession, resolveAppUrl } from "./js/supabase-client.js";
+        import { checkSession, resolveAppUrl, handleLogout } from "./js/supabase-client.js";
 
         const MAX_PLAYERS = 8;
         const INITIAL_ROWS = 4;
@@ -113,11 +113,6 @@
             return String(s ?? "").replace(/[&<>\"']/g, c => ({
                 "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
             }[c]));
-        }
-
-        async function handleLogout() {
-            if (state.supabase) await state.supabase.auth.signOut();
-            window.location.replace(resolveAppUrl("index.html"));
         }
 
         function goToManagerPage() {
@@ -428,7 +423,7 @@
             });
             $("show-stats-btn").addEventListener("click", () => toast("Stats coming soon", "keep"));
             $("export-csv-btn").addEventListener("click", exportCSV);
-            $("main-logout-btn").addEventListener("click", handleLogout);
+            $("main-logout-btn").addEventListener("click", () => handleLogout(state.supabase));
             $("data-user-management-btn").addEventListener("click", goToManagerPage);
             $("confirm-ops").addEventListener("click", hideMissingFieldsPopup);
             $("confirm-fine").addEventListener("click", async () => {
