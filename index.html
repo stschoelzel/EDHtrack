@@ -79,21 +79,13 @@
             saveConfig,
             clearConfig,
         } from "./js/supabase-client.js";
+        import { $, toast } from "./js/utils.js";
 
         const state = { supabase: null };
-        const $ = (id) => document.getElementById(id);
 
         function showScreen(id) {
             for (const s of document.querySelectorAll(".screen")) s.classList.remove("active");
             $(id).classList.add("active");
-        }
-
-        function toast(msg, kind = "") {
-            const t = document.createElement("div");
-            t.className = "toast " + kind;
-            t.textContent = msg;
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 3500);
         }
 
         async function doLogin(provider) {

@@ -65,28 +65,13 @@
 
     <script type="module">
         import { checkSession, resolveAppUrl } from "./js/supabase-client.js";
-
-        const $ = (id) => document.getElementById(id);
+        import { $, toast, escapeHtml } from "./js/utils.js";
 
         const state = {
             supabase: null,
             session: null,
             allowed: null,
         };
-
-        function toast(msg, kind = "") {
-            const t = document.createElement("div");
-            t.className = "toast " + kind;
-            t.textContent = msg;
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 3500);
-        }
-
-        function escapeHtml(s) {
-            return String(s ?? "").replace(/[&<>\"']/g, c => ({
-                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-            }[c]));
-        }
 
         async function handleLogout() {
             if (state.supabase) await state.supabase.auth.signOut();
