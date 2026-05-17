@@ -129,3 +129,9 @@ export async function checkSession({ redirectTo = resolveAppUrl("index.html") } 
     }
     return context;
 }
+
+export function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>\"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+}
