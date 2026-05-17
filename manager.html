@@ -79,7 +79,7 @@
     </div>
 
     <script type="module">
-        import { checkSession, resolveAppUrl } from "./js/supabase-client.js";
+        import { checkSession, resolveAppUrl, escapeHtml } from "./js/supabase-client.js";
 
         const $ = (id) => document.getElementById(id);
 
@@ -96,12 +96,6 @@
             t.textContent = msg;
             document.body.appendChild(t);
             setTimeout(() => t.remove(), 3500);
-        }
-
-        function escapeHtml(s) {
-            return String(s ?? "").replace(/[&<>\"']/g, c => ({
-                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-            }[c]));
         }
 
         async function handleLogout() {
