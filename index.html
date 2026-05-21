@@ -18,23 +18,19 @@
         <section id="screen-config" class="screen">
             <div class="panel">
                 <label>Welcome</label>
-                <p class="muted">Connect your Supabase project once, then sign in with GitHub, Discord, or Google.</p>
+                <p class="muted">Connect your Google account to sync data directly to a Google Sheet in your Google Drive.</p>
             </div>
 
             <div id="setup-phase-a" class="panel">
                 <label>Phase 1: App Connection</label>
-                <p class="muted">Enter your Supabase details to connect the app.</p>
+                <p class="muted">Enter your Google OAuth details to connect the app.</p>
                 <div class="field" style="margin-top:0.75rem">
-                    <label for="cfg-url">Supabase Project URL</label>
-                    <input id="cfg-url" type="text" autocomplete="off" spellcheck="false" />
+                    <label for="cfg-client">Google Client ID</label>
+                    <input id="cfg-client" type="text" autocomplete="off" spellcheck="false" />
                 </div>
                 <div class="field" style="margin-top:0.75rem">
-                    <label for="cfg-key">Supabase Publishable Key</label>
+                    <label for="cfg-key">Google API Key</label>
                     <input id="cfg-key" type="text" autocomplete="off" spellcheck="false" />
-                </div>
-                <div class="field" style="margin-top:0.75rem">
-                    <label for="cfg-owner">GitHub Username (Repo Owner)</label>
-                    <input id="cfg-owner" type="text" autocomplete="off" spellcheck="false" />
                 </div>
                 <div id="cfg-err" class="err" style="display:none"></div>
                 <div class="actions">
@@ -44,10 +40,9 @@
 
             <div id="setup-phase-b" class="panel" style="display:none">
                 <label>Phase 2: Self Authentication</label>
-                <p class="muted">Connection successful! Now login to claim Admin rights. The database will automatically
-                    recognize you as the Repo Owner.</p>
+                <p class="muted">Connection successful! Now login to allow access to your Google Drive.</p>
                 <div class="actions">
-                    <button id="cfg-login-github-btn" class="primary">Login with GitHub</button>
+                    <button id="cfg-login-google-btn" class="primary" style="background:#DB4437;border-color:#DB4437;color:white;">Login with Google</button>
                 </div>
             </div>
         </section>
@@ -55,11 +50,8 @@
         <section id="screen-login" class="screen">
             <div class="panel">
                 <label>Sign In</label>
-                <p class="muted">Authenticate to submit matches.</p>
+                <p class="muted">Authenticate to access and submit matches.</p>
                 <div class="actions" style="flex-direction:column">
-                    <button id="login-github-btn" class="primary">Login with GitHub</button>
-                    <button id="login-discord-btn" class="primary"
-                        style="background:#5865F2;border-color:#5865F2;color:white;">Login with Discord</button>
                     <button id="login-google-btn" class="primary"
                         style="background:#DB4437;border-color:#DB4437;color:white;">Login with Google</button>
                 </div>
@@ -70,17 +62,21 @@
         </section>
     </div>
 
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script type="module">
         import {
-            createSupabaseClient,
+            initGoogle,
+            login,
+            logout,
             getSessionContext,
             loadConfig,
             resolveAppUrl,
             saveConfig,
             clearConfig,
-        } from "./js/supabase-client.js";
+        } from "./js/google-sheets-client.js";
 
-        const state = { supabase: null };
+        const state = {};
         const $ = (id) => document.getElementById(id);
 
         function showScreen(id) {
@@ -96,84 +92,84 @@
             setTimeout(() => t.remove(), 3500);
         }
 
-        async function doLogin(provider) {
-            if (!state.supabase) {
-                toast("Configure Supabase first", "fail");
-                return;
+        async function doLogin() {
+            try {
+                toast("Logging in...", "keep");
+                await login();
+                window.location.replace(resolveAppUrl("tracker.html"));
+            } catch (error) {
+                toast(error.message || "Login failed", "fail");
             }
-            const { error } = await state.supabase.auth.signInWithOAuth({
-                provider,
-                options: { redirectTo: resolveAppUrl("tracker.html") }
-            });
-            if (error) toast(error.message, "fail");
         }
 
         async function handleLogout() {
-            if (state.supabase) await state.supabase.auth.signOut();
+            await logout();
             window.location.reload();
         }
 
         async function resetSetup() {
-            if (confirm("Reset setup on this device? You will need to enter the Supabase URL and Key again.")) {
+            if (confirm("Reset setup on this device? You will need to enter the Google Client ID and API Key again.")) {
                 clearConfig();
                 await handleLogout();
             }
         }
 
         async function boot() {
-            const cfg = loadConfig();
-            if (cfg.url && cfg.key && cfg.owner) {
-                $("cfg-url").value = cfg.url;
-                $("cfg-key").value = cfg.key;
-                $("cfg-owner").value = cfg.owner;
-                state.supabase = createSupabaseClient(cfg.url, cfg.key);
-                const context = await getSessionContext();
-                if (context) {
-                    window.location.replace(resolveAppUrl("tracker.html"));
+            // wait for google libraries to load before boot check
+            const tryBoot = async () => {
+                if (typeof gapi === 'undefined' || typeof google === 'undefined') {
+                    setTimeout(tryBoot, 100);
                     return;
                 }
-                $("setup-phase-a").style.display = "none";
-                $("setup-phase-b").style.display = "block";
-                showScreen("screen-login");
-            } else {
-                showScreen("screen-config");
-            }
+
+                const cfg = loadConfig();
+                if (cfg.clientId && cfg.apiKey) {
+                    $("cfg-client").value = cfg.clientId;
+                    $("cfg-key").value = cfg.apiKey;
+
+                    try {
+                        await initGoogle(cfg.clientId, cfg.apiKey);
+                        const context = await getSessionContext();
+                        if (context) {
+                            window.location.replace(resolveAppUrl("tracker.html"));
+                            return;
+                        }
+                        $("setup-phase-a").style.display = "none";
+                        $("setup-phase-b").style.display = "block";
+                        showScreen("screen-login");
+                    } catch (e) {
+                        toast(e.message || "Failed to initialize Google API", "fail");
+                        showScreen("screen-config");
+                    }
+                } else {
+                    showScreen("screen-config");
+                }
+            };
+            tryBoot();
 
             $("cfg-save-btn").addEventListener("click", async () => {
-                const url = $("cfg-url").value.trim();
-                const key = $("cfg-key").value.trim();
-                const owner = $("cfg-owner").value.trim();
-                if (!url || !key || !owner) return toast("All fields required", "fail");
+                const clientId = $("cfg-client").value.trim();
+                const apiKey = $("cfg-key").value.trim();
+                if (!clientId || !apiKey) return toast("All fields required", "fail");
 
                 $("cfg-save-btn").disabled = true;
                 $("cfg-save-btn").textContent = "Connecting...";
                 try {
-                    const sb = createSupabaseClient(url, key);
-                    await sb.from('app_config')
-                        .update({ owner_github_login: owner })
-                        .eq('id', 1)
-                        .is('owner_github_login', null);
-
-                    const { data, error } = await sb.from('app_config').select('owner_github_login').single();
-                    if (error) throw new Error("Database Error: " + error.message + " (Code: " + error.code + ")");
-
-                    saveConfig({ url, key, owner: data.owner_github_login || owner });
-                    state.supabase = sb;
+                    await initGoogle(clientId, apiKey);
+                    saveConfig({ clientId, apiKey });
                     $("setup-phase-a").style.display = "none";
                     $("setup-phase-b").style.display = "block";
                     showScreen("screen-login");
                 } catch (e) {
-                    toast(e.message, "fail");
+                    toast(e.message || "Connection failed", "fail");
                 } finally {
                     $("cfg-save-btn").disabled = false;
                     $("cfg-save-btn").textContent = "Connect";
                 }
             });
 
-            $("cfg-login-github-btn").addEventListener("click", () => doLogin("github"));
-            $("login-github-btn").addEventListener("click", () => doLogin("github"));
-            $("login-discord-btn").addEventListener("click", () => doLogin("discord"));
-            $("login-google-btn").addEventListener("click", () => doLogin("google"));
+            $("cfg-login-google-btn").addEventListener("click", doLogin);
+            $("login-google-btn").addEventListener("click", doLogin);
             $("login-reset-cfg-btn").addEventListener("click", resetSetup);
 
             const wm = document.querySelector('.wordmark');

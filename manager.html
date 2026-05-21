@@ -32,41 +32,6 @@
                 </div>
             </div>
 
-            <div class="panel" id="screen-manage-users">
-                <label>Manage Users &amp; Setup</label>
-                <p class="muted">Invite users here. RLS still enforces access server-side.</p>
-                <div class="field">
-                    <select id="invite-provider">
-                        <option value="github">GitHub Username</option>
-                        <option value="discord">Discord Username</option>
-                        <option value="google">Google Email</option>
-                    </select>
-                </div>
-                <div class="field" style="margin-top:0.75rem">
-                    <select id="invite-role">
-                        <option value="user">User (Track only)</option>
-                        <option value="editor">Editor (Add templates)</option>
-                        <option value="admin">Admin (Manage all)</option>
-                    </select>
-                </div>
-                <div class="field" style="margin-top:0.75rem">
-                    <input id="invite-identifier" type="text" placeholder="Username or Email" />
-                </div>
-                <div class="actions">
-                    <button id="invite-btn" class="primary">+ Add Invite</button>
-                </div>
-            </div>
-
-            <div class="panel">
-                <label>Pending Invites</label>
-                <div id="pending-list" class="muted">Loading...</div>
-            </div>
-
-            <div class="panel">
-                <label>Allowed Users</label>
-                <div id="allowed-list" class="muted">Loading...</div>
-            </div>
-
             <div class="panel" id="data-list-panel" style="display:none;">
                 <div class="topbar" style="margin-bottom: 1rem;">
                     <label id="data-list-title"></label>
@@ -78,13 +43,14 @@
 
     </div>
 
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script type="module">
-        import { checkSession, resolveAppUrl } from "./js/supabase-client.js";
+        import { checkSession, resolveAppUrl, initGoogle, loadConfig, fetchData, deleteRow } from "./js/google-sheets-client.js";
 
         const $ = (id) => document.getElementById(id);
 
         const state = {
-            supabase: null,
             session: null,
             allowed: null,
             role: null,
@@ -104,118 +70,74 @@
             }[c]));
         }
 
-        async function handleLogout() {
-            if (state.supabase) await state.supabase.auth.signOut();
-            window.location.replace(resolveAppUrl("index.html"));
-        }
-
-        async function loadManageUsers() {
-            const { data: inv } = await state.supabase.from('pending_invites').select('*').order('invited_at', { ascending: false });
-            const { data: allowed } = await state.supabase.from('allowed_users').select('*').order('added_at', { ascending: false });
-
-            const invDiv = $("pending-list");
-            invDiv.innerHTML = "";
-            if (inv && inv.length) {
-                inv.forEach(i => {
-                    const d = document.createElement("div");
-                    d.className = "list-item";
-                    d.innerHTML = `<span><b>${escapeHtml(i.provider)}:</b> ${escapeHtml(i.identifier)} <i>(${escapeHtml(i.role)})</i></span> <button data-id="${i.id}" class="row-remove">Remove</button>`;
-                    invDiv.appendChild(d);
-                });
-                invDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
-                    const id = e.target.dataset.id;
-                    await state.supabase.from('pending_invites').delete().eq('id', id);
-                    loadManageUsers();
-                }));
-            } else {
-                invDiv.textContent = "No pending invites.";
-            }
-
-            const allDiv = $("allowed-list");
-            allDiv.innerHTML = "";
-            if (allowed && allowed.length) {
-                allowed.forEach(a => {
-                    const d = document.createElement("div");
-                    d.className = "list-item";
-                    const providerLabel = a.provider ? a.provider.toUpperCase() : "UNKNOWN";
-                    d.innerHTML = `<span>${escapeHtml(a.display_name)} <i>(${escapeHtml(a.role)})</i></span> ${a.user_id !== state.session.user.id && state.role === "admin" ? `<button data-id="${a.user_id}" class="row-remove allowed-remove">Remove</button>` : '<span class="muted">'+escapeHtml(providerLabel)+'</span>'}`;
-
-                    allDiv.appendChild(d);
-                });
-
-                allDiv.querySelectorAll('.allowed-remove').forEach(btn => btn.addEventListener('click', async (e) => {
-                    const id = e.target.dataset.id;
-                    if(confirm("Are you sure you want to remove this user?")) {
-                       await state.supabase.from('allowed_users').delete().eq('user_id', id);
-                       loadManageUsers();
-                    }
-                }));
-            } else {
-                allDiv.textContent = "No allowed users.";
-            }
-        }
-
-        async function addInvite() {
-            const provider = $("invite-provider").value;
-            const identifier = $("invite-identifier").value.trim();
-            const role = $("invite-role").value;
-            if (!identifier) return toast("Identifier required", "fail");
-
-            const { error } = await state.supabase.from('pending_invites').insert([{ provider, identifier, role }]);
-            if (error) {
-                if (error.code === '23505') toast("Invite already exists", "fail");
-                else toast(error.message, "fail");
-            } else {
-                toast("Invited", "keep");
-                $("invite-identifier").value = "";
-                loadManageUsers();
-            }
-        }
-
-
         async function renderDataList(tableName, title) {
             if (state.role !== 'admin') return toast("Only admins can manage data", "fail");
             $("data-list-panel").style.display = "block";
             $("data-list-title").textContent = title;
             $("data-rows").innerHTML = "Loading...";
 
-            const { data, error } = await state.supabase.from(tableName).select('*').order('name');
-            if (error) {
-                $("data-rows").innerHTML = "Error loading data.";
-                return toast(error.message, "fail");
-            }
+            try {
+                const data = await fetchData(tableName);
 
-            const rowsDiv = $("data-rows");
-            rowsDiv.innerHTML = "";
-            if (data && data.length) {
-                data.forEach(item => {
-                    const d = document.createElement("div");
-                    d.className = "list-item";
-                    d.innerHTML = `<span>${escapeHtml(item.name)}</span> <button data-id="${item.id}" class="row-remove">Delete</button>`;
-                    rowsDiv.appendChild(d);
-                });
+                // Sort by name
+                if (data && data.length) {
+                    data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                }
 
-                rowsDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
-                    const id = e.target.dataset.id;
-                    if (confirm("Delete this item? This may fail if it is used in matches.")) {
-                        const { error: delErr } = await state.supabase.from(tableName).delete().eq('id', id);
-                        if (delErr) {
-                            toast(delErr.message, "fail");
-                        } else {
-                            renderDataList(tableName, title);
+                const rowsDiv = $("data-rows");
+                rowsDiv.innerHTML = "";
+
+                if (data && data.length) {
+                    data.forEach(item => {
+                        const d = document.createElement("div");
+                        d.className = "list-item";
+                        d.innerHTML = `<span>${escapeHtml(item.name)}</span> <button data-id="${item.id}" class="row-remove">Delete</button>`;
+                        rowsDiv.appendChild(d);
+                    });
+
+                    rowsDiv.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async (e) => {
+                        const id = e.target.dataset.id;
+                        if (confirm("Delete this item?")) {
+                            try {
+                                await deleteRow(tableName, id);
+                                renderDataList(tableName, title);
+                            } catch (delErr) {
+                                toast(delErr.message || "Failed to delete item", "fail");
+                            }
                         }
-                    }
-                }));
-            } else {
-                rowsDiv.textContent = "No entries found.";
+                    }));
+                } else {
+                    rowsDiv.textContent = "No entries found.";
+                }
+            } catch (error) {
+                $("data-rows").innerHTML = "Error loading data.";
+                return toast(error.message || "Error fetching data", "fail");
             }
         }
 
         async function boot() {
+            // Wait for google libraries
+            if (typeof gapi === 'undefined' || typeof google === 'undefined') {
+                setTimeout(boot, 100);
+                return;
+            }
+
+            const cfg = loadConfig();
+            if (cfg.clientId && cfg.apiKey) {
+                try {
+                    await initGoogle(cfg.clientId, cfg.apiKey);
+                } catch(e) {
+                    window.location.replace(resolveAppUrl("index.html"));
+                    return;
+                }
+            } else {
+                window.location.replace(resolveAppUrl("index.html"));
+                return;
+            }
+
             const context = await checkSession();
             if (!context) return;
 
-            state.supabase = context.supabase;
             state.session = context.session;
             state.allowed = context.allowed;
 
@@ -233,16 +155,13 @@
             $("back-to-main-btn").addEventListener("click", () => {
                 window.location.href = resolveAppUrl("tracker.html");
             });
-            $("edit-decks-btn").addEventListener("click", () => renderDataList("decks", "Manage Decks"));
+            $("edit-decks-btn").addEventListener("click", () => renderDataList("Decks", "Manage Decks"));
             $("close-data-list-btn").addEventListener("click", () => $("data-list-panel").style.display = "none");
-            $("edit-players-btn").addEventListener("click", () => renderDataList("players", "Manage Players"));
-            $("edit-game-types-btn").addEventListener("click", () => renderDataList("game_types", "Manage Game Types"));
-            $("edit-win-conditions-btn").addEventListener("click", () => renderDataList("win_conditions", "Manage Winning Conditions"));
+            $("edit-players-btn").addEventListener("click", () => renderDataList("Players", "Manage Players"));
+            $("edit-game-types-btn").addEventListener("click", () => renderDataList("Game_Types", "Manage Game Types"));
+            $("edit-win-conditions-btn").addEventListener("click", () => renderDataList("Win_Conditions", "Manage Winning Conditions"));
 
             if (state.role !== "admin") { document.querySelectorAll(".admin-tools-grid").forEach(el => el.style.display = "none"); }
-            $("invite-btn").addEventListener("click", addInvite);
-
-            await loadManageUsers();
         }
 
         document.addEventListener("DOMContentLoaded", boot);
