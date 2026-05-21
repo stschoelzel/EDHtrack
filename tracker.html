@@ -78,14 +78,15 @@
     <datalist id="dl-players"></datalist>
     <datalist id="dl-decks"></datalist>
 
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script type="module">
-        import { checkSession, resolveAppUrl } from "./js/supabase-client.js";
+        import { checkSession, resolveAppUrl, logout, loadConfig, initGoogle, fetchData, insertRow, upsertData } from "./js/google-sheets-client.js";
 
         const MAX_PLAYERS = 8;
         const INITIAL_ROWS = 4;
 
         const state = {
-            supabase: null,
             session: null,
             role: null,
             players: [],
@@ -113,11 +114,6 @@
             return String(s ?? "").replace(/[&<>\"']/g, c => ({
                 "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
             }[c]));
-        }
-
-        async function handleLogout() {
-            if (state.supabase) await state.supabase.auth.signOut();
-            window.location.replace(resolveAppUrl("index.html"));
         }
 
         function goToManagerPage() {
@@ -287,17 +283,22 @@
         }
 
         async function loadLookups() {
-            const [p, d, g, w] = await Promise.all([
-                state.supabase.from('players').select('name'),
-                state.supabase.from('decks').select('name'),
-                state.supabase.from('game_types').select('name'),
-                state.supabase.from('win_conditions').select('name')
-            ]);
-            state.players = p.data ? p.data.map(x => x.name) : [];
-            state.decks = d.data ? d.data.map(x => x.name) : [];
-            state.gameTypes = g.data ? g.data.map(x => x.name) : [];
-            state.winConditions = w.data ? w.data.map(x => x.name) : [];
-            renderDatalists();
+            try {
+                const [p, d, g, w] = await Promise.all([
+                    fetchData('Players'),
+                    fetchData('Decks'),
+                    fetchData('Game_Types'),
+                    fetchData('Win_Conditions')
+                ]);
+                state.players = p ? p.map(x => x.name) : [];
+                state.decks = d ? d.map(x => x.name) : [];
+                state.gameTypes = g ? g.map(x => x.name) : [];
+                state.winConditions = w ? w.map(x => x.name) : [];
+                renderDatalists();
+            } catch (e) {
+                console.error(e);
+                toast("Error loading lookups", "fail");
+            }
         }
 
         async function submitMatch() {
@@ -329,13 +330,13 @@
                 if (state.role === 'admin' || state.role === 'editor') {
                     const newP = Array.from(new Set(state.rows.map(r => r.player.trim()).filter(Boolean))).map(name => ({ name }));
                     const newD = Array.from(new Set(state.rows.map(r => r.deck.trim()).filter(Boolean))).map(name => ({ name }));
-                    if (newP.length) await state.supabase.from('players').upsert(newP, { onConflict: 'name', ignoreDuplicates: true });
-                    if (newD.length) await state.supabase.from('decks').upsert(newD, { onConflict: 'name', ignoreDuplicates: true });
+                    if (newP.length) await upsertData('Players', newP, 'name');
+                    if (newD.length) await upsertData('Decks', newD, 'name');
                     if (gameType) {
-                        await state.supabase.from('game_types').upsert([{ name: gameType }], { onConflict: 'name', ignoreDuplicates: true });
+                        await upsertData('Game_Types', [{ name: gameType }], 'name');
                     }
                     if (winCond) {
-                        await state.supabase.from('win_conditions').upsert([{ name: winCond }], { onConflict: 'name', ignoreDuplicates: true });
+                        await upsertData('Win_Conditions', [{ name: winCond }], 'name');
                     }
                 }
 
@@ -349,16 +350,16 @@
                 const winnerNames = state.winners.map(idx => state.rows[idx].player.trim()).join(", ");
 
                 const matchRow = {
-                    participants,
+                    played_at: new Date().toISOString().split('T')[0],
+                    participants: participants,
                     winner: winnerNames,
+                    is_draw: state.isDraw,
                     turn: isNaN(turn) ? null : turn,
                     win_condition: winCond || null,
                     game_type: gameType,
-                    is_draw: state.isDraw
                 };
 
-                const { error } = await state.supabase.from('matches').insert([matchRow]);
-                if (error) throw error;
+                await insertRow('Matches', matchRow);
 
                 toast("Match saved!", "keep");
                 resetForm();
@@ -373,6 +374,11 @@
             }
         }
 
+        async function handleLogout() {
+            await logout();
+            window.location.replace(resolveAppUrl("index.html"));
+        }
+
         function csvEscape(s) {
             s = String(s ?? "");
             if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
@@ -381,40 +387,76 @@
 
         async function exportCSV() {
             toast("Exporting...", "keep");
-            const { data: matches, error } = await state.supabase.from('matches').select('*').order('played_at', { ascending: true });
-            if (error) return toast("Error fetching matches", "fail");
-            if (!matches || !matches.length) return toast("No matches found", "fail");
+            try {
+                let matches = await fetchData('Matches');
+                if (!matches || !matches.length) return toast("No matches found", "fail");
 
-            let csv = "ID,Date,Participants,Winner,Turn,WinCondition,GameType\n";
-            matches.forEach(m => {
-                const parts = m.participants.filter(p => p.player).map(p => `${p.player} (${p.deck})`).join(" | ");
-                const row = [
-                    m.id,
-                    m.played_at,
-                    parts,
-                    m.winner,
-                    m.turn || "",
-                    m.win_condition || "",
-                    m.game_type
-                ];
-                csv += row.map(csvEscape).join(",") + "\n";
-            });
+                // Sort matches by played_at if possible
+                matches.sort((a, b) => {
+                    const dateA = a.played_at ? new Date(a.played_at) : new Date(0);
+                    const dateB = b.played_at ? new Date(b.played_at) : new Date(0);
+                    return dateA - dateB;
+                });
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `edhtrack_matches_${new Date().toISOString().slice(0, 10)}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+                let csv = "ID,Date,Participants,Winner,Turn,WinCondition,GameType\n";
+                matches.forEach(m => {
+                    let partsStr = "";
+                    if (m.participants) {
+                        try {
+                            const pArr = typeof m.participants === 'string' ? JSON.parse(m.participants) : m.participants;
+                            partsStr = pArr.filter(p => p.player).map(p => `${p.player} (${p.deck})`).join(" | ");
+                        } catch(e) {}
+                    }
+
+                    const row = [
+                        m.id,
+                        m.played_at || "",
+                        partsStr,
+                        m.winner || "",
+                        m.turn || "",
+                        m.win_condition || "",
+                        m.game_type || ""
+                    ];
+                    csv += row.map(csvEscape).join(",") + "\n";
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `edhtrack_matches_${new Date().toISOString().slice(0, 10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                console.error(e);
+                toast("Error fetching matches", "fail");
+            }
         }
 
         async function boot() {
+            // Wait for google libraries
+            if (typeof gapi === 'undefined' || typeof google === 'undefined') {
+                setTimeout(boot, 100);
+                return;
+            }
+
+            const cfg = loadConfig();
+            if (cfg.clientId && cfg.apiKey) {
+                try {
+                    await initGoogle(cfg.clientId, cfg.apiKey);
+                } catch(e) {
+                    window.location.replace(resolveAppUrl("index.html"));
+                    return;
+                }
+            } else {
+                window.location.replace(resolveAppUrl("index.html"));
+                return;
+            }
+
             const context = await checkSession();
             if (!context) return;
 
-            state.supabase = context.supabase;
             state.session = context.session;
             state.role = context.allowed?.role || 'user';
 
