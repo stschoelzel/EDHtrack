@@ -110,3 +110,5 @@ Die Datenstruktur wird automatisch in Google Sheets (Tabs) angelegt:
 
 - **Fehler beim Login**: Stelle sicher, dass du deinen Google-Account unter "Test users" im OAuth Consent Screen (Google Cloud Console) hinzugefügt hast, falls die App noch im "Testing" Status ist.
 - **Clearing local config**: Tippe auf "Reset Setup" in der App oder leere die Website-Daten deines Browsers, um die gespeicherte Google Client ID und den API Key vom Gerät zu löschen.
+
+test
