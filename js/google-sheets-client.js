@@ -1,3 +1,9 @@
+// HINWEIS: Hier können Sie Ihre Standard-Zugangsdaten eintragen, damit Sie diese nicht auf jedem neuen Gerät
+// (z.B. Ihrem Handy) manuell eingeben müssen. Wenn diese ausgefüllt sind, überspringt die App Phase 1.
+const DEFAULT_CLIENT_ID = "";
+const DEFAULT_API_KEY = "";
+const DEFAULT_SPREADSHEET_ID = "";
+
 const LS_KEY = "edhtrack.config.v3";
 
 const DISCOVERY_DOCS = [
@@ -7,18 +13,23 @@ const DISCOVERY_DOCS = [
 const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
 
 export function loadConfig() {
+    let clientId = DEFAULT_CLIENT_ID;
+    let apiKey = DEFAULT_API_KEY;
+    let spreadsheetId = DEFAULT_SPREADSHEET_ID;
+
     try {
         const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return { clientId: "", apiKey: "", spreadsheetId: "" };
-        const parsed = JSON.parse(raw);
-        return {
-            clientId: String(parsed?.clientId ?? "").trim(),
-            apiKey: String(parsed?.apiKey ?? "").trim(),
-            spreadsheetId: String(parsed?.spreadsheetId ?? "").trim(),
-        };
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.clientId) clientId = String(parsed.clientId).trim();
+            if (parsed?.apiKey) apiKey = String(parsed.apiKey).trim();
+            if (parsed?.spreadsheetId) spreadsheetId = String(parsed.spreadsheetId).trim();
+        }
     } catch {
-        return { clientId: "", apiKey: "", spreadsheetId: "" };
+        // Falls das Auslesen scheitert, nutzen wir die Standardwerte
     }
+
+    return { clientId, apiKey, spreadsheetId };
 }
 
 export function saveConfig(config) {
