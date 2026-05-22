@@ -67,6 +67,23 @@ export async function initGoogle(clientId, apiKey) {
         callback: '', // Will be overridden in login()
     });
     gisInited = true;
+
+    // Restore token from sessionStorage if exists
+    const storedToken = sessionStorage.getItem("edhtrack.token.v3");
+    if (storedToken) {
+        try {
+            const token = JSON.parse(storedToken);
+            gapi.client.setToken(token);
+            sessionContext = { role: 'admin', user: { id: 'google-user' } };
+            
+            const storedSheetId = sessionStorage.getItem("edhtrack.spreadsheetId.v3");
+            if (storedSheetId) {
+                spreadsheetId = storedSheetId;
+            }
+        } catch (e) {
+            console.error("Failed to restore token from sessionStorage:", e);
+        }
+    }
 }
 
 export function isReady() {
@@ -81,7 +98,19 @@ export async function login() {
                 return;
             }
             try {
+                // Save token to sessionStorage
+                const token = gapi.client.getToken();
+                if (token) {
+                    sessionStorage.setItem("edhtrack.token.v3", JSON.stringify(token));
+                }
+
                 await checkAndInitializeSpreadsheet();
+
+                // Save spreadsheet ID to sessionStorage
+                if (spreadsheetId) {
+                    sessionStorage.setItem("edhtrack.spreadsheetId.v3", spreadsheetId);
+                }
+
                 sessionContext = { role: 'admin', user: { id: 'google-user' } };
                 resolve(sessionContext);
             } catch(e) {
@@ -105,6 +134,8 @@ export async function logout() {
     }
     sessionContext = null;
     spreadsheetId = null;
+    sessionStorage.removeItem("edhtrack.token.v3");
+    sessionStorage.removeItem("edhtrack.spreadsheetId.v3");
 }
 
 export async function getSessionContext() {
