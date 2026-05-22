@@ -1,127 +1,105 @@
 # EDHtrack
-MTG / Commander match tracker. **GitHub Pages frontend + Supabase backend.**
+MTG / Commander match tracker. **GitHub Pages frontend + Google Sheets backend.**
 
-No build steps required. Static HTML/JS on GitHub Pages, Supabase Postgres as database.
+No build steps required. Static HTML/JS auf GitHub Pages, Google Sheets als Datenbank in deinem eigenen Google Drive.
 
 ---
 
-## Für Mitspieler (einfach loslegen)
+## Für Nutzer (einfach loslegen)
 
-Öffne [https://stschoelzel.github.io/EDHtrack/](https://stschoelzel.github.io/EDHtrack/), klick auf **Login mit GitHub** — fertig. Supabase-Verbindung ist bereits eingebaut. Sobald du eingeloggt bist und der Admin dich freigeschaltet hat, kannst du Matches eintragen.
+Sobald der Tracker eingerichtet ist (siehe Setup):
+Öffne die URL (z.B. [https://stschoelzel.github.io/EDHtrack/](https://stschoelzel.github.io/EDHtrack/)), trage die Google Client ID und den API Key ein, klicke auf **Connect** und logge dich danach mit deinem Google-Account ein.
 
-Du brauchst kein eigenes Supabase-Konto, keinen Token, kein Setup.
+Sobald du eingeloggt bist, legt die App automatisch ein Google Sheet namens `EDHtrack_Data` in deinem Google Drive an. Du kannst sofort Matches eintragen.
 
 ---
 
 ## Security Model
 
-**Der Supabase Publishable Key ist bewusst öffentlich.**
-Er steckt direkt im Quellcode — das ist by design, wie eine Restauranttür: sie ist offen, aber an der Kasse wirst du trotzdem aufgehalten.
+**Deine Daten gehören dir.**
+Der Tracker speichert alle Daten direkt in einem Google Sheet in deinem persönlichen Google Drive.
 
-Schutz läuft komplett über **Row Level Security (RLS)** in Postgres:
+Schutz läuft komplett über **Google OAuth 2.0**:
 
-* Die Datenbank weiß via OAuth wer du bist.
-* RLS prüft ob du in `allowed_users` stehst.
-* Ja → lesen und schreiben erlaubt. Nein → Access Denied.
-
-Der Key alleine gibt einem Angreifer **null** Möglichkeit, Daten zu lesen oder zu manipulieren.
+* Die App greift via OAuth nur auf die Google Sheets zu, die von der App selbst erstellt wurden (über den Scope `https://www.googleapis.com/auth/drive.file`).
+* Ohne deinen Login und deine explizite Freigabe passiert nichts.
+* Es gibt kein zentrales Backend mehr, das gehackt werden könnte. Jeder Nutzer (oder jede Gruppe, die sich einen Account teilt) hat seine eigene Datenbank in Form eines Google Sheets.
 
 ---
 
 ## Setup (für Forker — eigene Instanz aufsetzen)
 
-> **Du willst EDHtrack für deine eigene Gruppe hosten?** Dann fork das Repo und folge diesen Schritten. Du bekommst deine eigene Datenbank, deine eigene Benutzerverwaltung, unabhängig vom Original.
+> **Du willst EDHtrack für deine eigene Gruppe hosten?** Dann fork das Repo und folge diesen Schritten. Jeder Nutzer verbindet sein eigenes Google Drive, um die Matches zu speichern.
 
 ### 1. Repo forken
-Fork auf GitHub. Public oder private — kein Geheimnis liegt mehr im Code (außer dem Anon Key, der aber public-by-design ist).
+Fork auf GitHub. Public oder private — die App ist statisch.
 
-### 2. Supabase-Projekt anlegen
-Gratis-Account auf [supabase.com](https://supabase.com). Neues Projekt erstellen, Region wählen, DB-Passwort speichern (nur für direkten DB-Zugriff nötig, nicht für die App).
+### 2. Google Cloud Projekt erstellen
+Gehe zur [Google Cloud Console](https://console.cloud.google.com/) und erstelle ein neues Projekt.
 
-### 3. Schema importieren
-Supabase Dashboard → **SQL Editor** → Inhalt von [`supabase/schema.sql`](supabase/schema.sql) einfügen → **Run**.
-Optional: [`supabase/seed.sql`](supabase/seed.sql) für Default-Spieltypen (EDH, Planechase, …).
+### 3. APIs aktivieren
+Gehe zu **APIs & Services > Library** und aktiviere folgende zwei APIs für dein Projekt:
+1. **Google Sheets API**
+2. **Google Drive API**
 
-### 4. GitHub OAuth App erstellen
-GitHub → Settings → Developer settings → **OAuth Apps** → **New OAuth App**:
+### 4. OAuth Consent Screen (Zustimmungsbildschirm) einrichten
+Gehe zu **APIs & Services > OAuth consent screen**:
+* Wähle **External** (oder Internal, wenn du Google Workspace nutzt).
+* Fülle die Pflichtfelder aus (App name, User support email, Developer contact information).
+* Klicke auf **Save and Continue**.
+* Unter **Scopes**, klicke auf **Add or Remove Scopes** und füge folgende Scopes hinzu:
+  * `https://www.googleapis.com/auth/drive.file`
+* Klicke auf **Save and Continue**.
+* Füge unter **Test users** die Google-Accounts hinzu, die den Tracker nutzen sollen (solange die App im "Testing" Status ist).
+* Klicke auf **Save and Continue** und dann zurück zum Dashboard.
 
-| Feld | Wert |
-|---|---|
-| Application name | `EDHtrack` |
-| Homepage URL | `https://<dein-username>.github.io/<repo-name>/` |
-| Authorization callback URL | Aus Supabase kopieren: Dashboard → Authentication → Providers → GitHub → "Callback URL" |
+### 5. Credentials (Zugangsdaten) erstellen
+Gehe zu **APIs & Services > Credentials**.
 
-Client ID + Client Secret notieren.
+#### API Key erstellen:
+* Klicke auf **Create Credentials > API key**.
+* Kopiere den generierten API Key (du brauchst ihn später im Tracker).
 
-### 5. GitHub-Provider in Supabase aktivieren
-Dashboard → **Authentication** → **Providers** → **GitHub** → aktivieren → Client ID + Secret eintragen → Save.
+#### OAuth Client ID erstellen:
+* Klicke auf **Create Credentials > OAuth client ID**.
+* Wähle als Application type **Web application**.
+* Name: z.B. `EDHtrack`
+* **Authorized JavaScript origins**: Trage die URL ein, unter der dein Tracker gehostet wird, z.B. `https://<dein-username>.github.io` und `http://localhost:8000` (für lokales Testen).
+* **Authorized redirect URIs**: Trage die genaue URL zu deinem Tracker ein, z.B. `https://<dein-username>.github.io/<repo-name>/` (und `http://localhost:8000/` für lokal).
+* Klicke auf **Create**.
+* Kopiere die generierte **Client ID**.
 
-### 6. Site URL + Redirect URLs setzen
-Dashboard → **Authentication** → **URL Configuration**:
-- **Site URL** = `https://<dein-username>.github.io/<repo-name>/`
-- **Redirect URLs** — klick auf "Add URL" und trage **beide** ein:
-  - `https://<dein-username>.github.io/<repo-name>/tracker.html`
-  - `https://<dein-username>.github.io/<repo-name>/index.html`
-
-> Ohne diese Einträge schlägt der OAuth-Redirect fehl und du landest nach dem GitHub-Login auf einer Fehlerseite.
-
-### 7. DEFAULT_CONFIG in `js/supabase-client.js` anpassen
-Öffne `js/supabase-client.js` und trage deine eigenen Werte ein:
-
-```js
-const DEFAULT_CONFIG = {
-    url: "https://dein-projekt.supabase.co",   // Supabase → Settings → API → Project URL
-    key: "dein_anon_key",                       // Supabase → Settings → API → Anon / Public
-    owner: "dein-github-username",              // Dein GitHub-Login (wird automatisch Admin)
-};
-```
-
-Committen und pushen.
-
-### 8. GitHub Pages aktivieren
-Repo → **Settings** → **Pages** → Source: **Deploy from a branch** → `main`, `/ (root)` → Save.
+### 6. GitHub Pages aktivieren
+In deinem GitHub Repo → **Settings** → **Pages** → Source: **Deploy from a branch** → `main`, `/ (root)` → Save.
 Nach ~1 Minute ist die Seite live unter `https://<dein-username>.github.io/<repo-name>/`.
 
-GitHub zeigt eine Warnung dass die Seite öffentlich erreichbar ist, auch bei privatem Repo. Das ist gewollt — der Schutz liegt in RLS, nicht im URL-Geheimnis.
+### 7. App verbinden
+* Öffne deine Page-URL.
+* Trage die generierte **Google Client ID** und den **Google API Key** ein.
+* Klicke auf **Connect**.
+* Im zweiten Schritt, klicke auf **Login mit Google** und melde dich an.
 
-### 9. Einloggen & Admin werden
-Öffne deine Page-URL, klick **Login mit GitHub**. Da dein GitHub-Username in `DEFAULT_CONFIG.owner` steht, erkennt die Datenbank dich als Owner und setzt dich automatisch als Admin.
-
-### 10. Mitspieler einladen
-**Manage Users** im Topbar → GitHub-Username, Discord-Name oder E-Mail eintragen → eingeladen. Beim nächsten Login deines Mitspielers wird er automatisch freigeschaltet.
+Beim ersten Login wird automatisch das Sheet `EDHtrack_Data` in deinem Drive erstellt und mit den nötigen Tabellen (`Matches`, `Players`, `Decks`, `Game_Types`, `Win_Conditions`) initialisiert.
 
 ## Schema Reference
 
-All schema definitions are located in [`supabase/schema.sql`](supabase/schema.sql).
+Die Datenstruktur wird automatisch in Google Sheets (Tabs) angelegt:
 
-| Table | Purpose |
+| Sheet | Purpose |
 |---|---|
-| `app_config` | Stores the GitHub username of the Repo Owner. |
-| `allowed_users` | Whitelisted users who can use the app. |
-| `pending_invites` | Invitations created by the Admin. |
-| `matches` | The core match data. |
-| `players`, `decks` | Lookup tables for autocomplete. |
-| `game_types` | E.g., EDH, Planechase, Pentagram. |
-| `win_conditions` | E.g., Combat Damage, Commander Damage. |
+| `Matches` | The core match data (`id`, `played_at`, `participants`, `winner`, `is_draw`, `turn`, `win_condition`, `game_type`, `created_at`). |
+| `Players` | Lookup table for autocomplete. |
+| `Decks` | Lookup table for autocomplete. |
+| `Game_Types` | E.g., EDH, Planechase. |
+| `Win_Conditions` | E.g., Combat Damage, Commander Damage. |
 
 ## How it works
 
-- **OAuth Flow**: The app uses Supabase GoTrue for authentication. When you click "Login", Supabase redirects you to the provider, then back to the app, establishing a secure session.
-- **Admin Bootstrap**: The first time the app connects to the database, it saves the Repo Owner's GitHub username in `app_config`. A Postgres trigger automatically grants `is_admin = true` to the first user who logs in matching that username.
-- **Dynamic Learning**: When a user submits a match with a new Deck or Player name, the app uses an `upsert` query to dynamically add it to the lookup tables, keeping autocomplete lists up-to-date.
-- **RLS Policies**: Every read and write to the data tables is validated by the database. If you aren't in `allowed_users`, the Postgres database rejects your query instantly.
-
-## Gotchas
-
-- **Supabase Free Tier**: Free tier projects are paused after 1 week of zero activity. You will need to log into the Supabase Dashboard to unpause it if you haven't played Magic in a while.
-- **OAuth Redirects**: If your GitHub Pages URL changes, you MUST update the Site URL in the Supabase Dashboard, or login will fail.
-- **Publishable Key**: It is public. Do not panic if you see it in your browser console.
+- **OAuth Flow**: Die App nutzt Google Identity Services zur Authentifizierung. Beim Login stimmst du zu, dass die App in deinem Google Drive Dateien erstellen und bearbeiten darf (Scope `drive.file`).
+- **Dynamic Learning**: Wenn du ein Match mit einem neuen Deck, Spieler, Spieltyp oder einer neuen Siegbedingung einträgst, fügt die App diese automatisch in die entsprechenden Sheets (Tabs) ein.
+- **Datenhaltung**: Alle Daten liegen in deinem Google Drive als normales Spreadsheet. Du kannst es jederzeit öffnen, ansehen oder manuell bearbeiten.
 
 ## If something goes wrong
 
-- **Compromised Auth Provider**: If you accidentally leak your GitHub OAuth Client Secret, rotate it in GitHub immediately, then update it in the Supabase Dashboard.
-- **Lockout**: If you somehow lose Admin rights, you can manually fix it. Go to the Supabase SQL Editor and run:
-  ```sql
-  update allowed_users set is_admin = true where display_name = 'your_username';
-  ```
-- **Clearing local config**: Tap "Reset Setup" in the app or clear your browser's site data to wipe the stored Supabase URL and Key from the device.
+- **Fehler beim Login**: Stelle sicher, dass du deinen Google-Account unter "Test users" im OAuth Consent Screen (Google Cloud Console) hinzugefügt hast, falls die App noch im "Testing" Status ist.
+- **Clearing local config**: Tippe auf "Reset Setup" in der App oder leere die Website-Daten deines Browsers, um die gespeicherte Google Client ID und den API Key vom Gerät zu löschen.
