@@ -163,16 +163,41 @@ async function checkAndInitializeSpreadsheet() {
         return;
     }
 
-    // 2. Prüfen, ob eine Spreadsheet-ID in der App-Konfiguration hinterlegt wurde
+    // 2. Erstmaliges Setup: Den Nutzer fragen
     const cfg = loadConfig();
+    let chosenId = null;
+
     if (cfg.spreadsheetId) {
-        spreadsheetId = cfg.spreadsheetId;
+        // Falls eine Standard-Tabelle in der Konfiguration definiert wurde (z.B. vom Admin)
+        const useDefault = confirm(
+            "Erstmaliges Setup:\nMöchtest du die zentrale Standard-Tabelle des Administrators nutzen?\n\n" +
+            "(Wähle 'Abbrechen', wenn du eine eigene Tabellen-ID eintragen oder eine neue erstellen willst.)"
+        );
+        if (useDefault) {
+            chosenId = cfg.spreadsheetId;
+        }
+    }
+
+    if (!chosenId) {
+        // Fallback-Abfrage: Nach eigener ID fragen
+        const customId = prompt(
+            "Möchtest du eine bestehende, eigene Google Spreadsheet ID eintragen?\n\n" +
+            "Falls ja, trage die ID hier ein.\n" +
+            "Falls nein, lass das Feld leer, um automatisch eine neue Tabelle in deinem Google Drive zu erstellen."
+        );
+        if (customId && customId.trim() !== "") {
+            chosenId = customId.trim();
+        }
+    }
+
+    if (chosenId) {
+        spreadsheetId = chosenId;
         localStorage.setItem("edhtrack_spreadsheet_id", spreadsheetId);
-        console.log("Verwendung der Spreadsheet ID aus der Konfiguration:", spreadsheetId);
+        console.log("Tabelle verknüpft:", spreadsheetId);
         return;
     }
 
-    // 3. Keine ID vorkonfiguriert -> Standard-Logik: Suche oder Neuerstellung im eigenen Drive
+    // 3. Keine ID vorhanden oder eingetragen -> Standard-Logik: Suche oder Neuerstellung im eigenen Drive
     console.log("Suche oder erstelle neue Tabelle 'EDHtrack_Data' im Drive des Nutzers...");
     let response;
     try {

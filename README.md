@@ -82,10 +82,11 @@ Nach ~1 Minute ist die Seite live unter `https://<dein-username>.github.io/<repo
 * Trage die kopierten Zugangsdaten in die Felder ein:
   * **Google Client ID**: Trage hier die kopierte **Client ID** (endet meist auf `.apps.googleusercontent.com`) ein.
   * **Google API Key**: Trage hier den kopierten **API Key** (API-Schlüssel) ein.
+  * **Default/Central Spreadsheet ID (Optional)**: Trage hier eine bestehende Spreadsheet-ID ein, falls du für deine Mitspieler eine zentrale Standard-Tabelle vorgeben möchtest (z.B. deine eigene).
 * Klicke auf **Connect**.
 * Im zweiten Schritt (Phase 2: Self Authentication), klicke auf **Login mit Google** und melde dich mit deinem Google-Account an.
-
-Beim ersten erfolgreichen Login wird automatisch das Sheet `EDHtrack_Data` in deinem Drive erstellt und mit den nötigen Tabellen (`Matches`, `Players`, `Decks`, `Game_Types`, `Win_Conditions`) initialisiert.
+  * **Erstmaliges Setup (für jeden Nutzer/Gerät)**: Beim ersten Login wird gefragt, ob man die konfigurierte zentrale Standard-Tabelle nutzen, eine eigene bestehende ID eintragen oder eine neue Tabelle im eigenen Google Drive erstellen möchte.
+  * Falls eine neue erstellt wird, wird automatisch das Sheet `EDHtrack_Data` in deinem Drive erstellt und mit den nötigen Tabellen (`Matches`, `Players`, `Decks`, `Game_Types`, `Win_Conditions`) initialisiert.
 
 ## Schema Reference
 
