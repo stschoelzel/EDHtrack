@@ -32,6 +32,23 @@
                     <label for="cfg-key">Google API Key</label>
                     <input id="cfg-key" type="text" autocomplete="off" spellcheck="false" />
                 </div>
+                <div class="field" style="margin-top:0.75rem">
+                    <label>Spreadsheet Mode</label>
+                    <div style="display:flex; gap:1.25rem; margin-top:0.35rem;">
+                        <label style="display:inline-flex; align-items:center; cursor:pointer; font-weight:normal;">
+                            <input type="radio" name="cfg-sheet-mode" value="auto" checked style="margin-right:0.35rem;" />
+                            Neu erstellen / Nach "EDHtrack_Data" suchen
+                        </label>
+                        <label style="display:inline-flex; align-items:center; cursor:pointer; font-weight:normal;">
+                            <input type="radio" name="cfg-sheet-mode" value="custom" style="margin-right:0.35rem;" />
+                            Bestehende Spreadsheet-ID verwenden
+                        </label>
+                    </div>
+                </div>
+                <div id="cfg-sheet-id-container" class="field" style="margin-top:0.75rem; display:none;">
+                    <label for="cfg-sheet-id">Google Spreadsheet ID</label>
+                    <input id="cfg-sheet-id" type="text" autocomplete="off" spellcheck="false" placeholder="z.B. 1V-NDNn7Lnr2Y..." />
+                </div>
                 <div id="cfg-err" class="err" style="display:none"></div>
                 <div class="actions">
                     <button id="cfg-save-btn" class="primary">Connect</button>
@@ -126,6 +143,15 @@
                 if (cfg.clientId && cfg.apiKey) {
                     $("cfg-client").value = cfg.clientId;
                     $("cfg-key").value = cfg.apiKey;
+                    if (cfg.spreadsheetId) {
+                        document.querySelector('input[name="cfg-sheet-mode"][value="custom"]').checked = true;
+                        $("cfg-sheet-id").value = cfg.spreadsheetId;
+                        $("cfg-sheet-id-container").style.display = "block";
+                    } else {
+                        document.querySelector('input[name="cfg-sheet-mode"][value="auto"]').checked = true;
+                        $("cfg-sheet-id").value = "";
+                        $("cfg-sheet-id-container").style.display = "none";
+                    }
 
                     try {
                         await initGoogle(cfg.clientId, cfg.apiKey);
@@ -147,16 +173,28 @@
             };
             tryBoot();
 
+            const toggleSheetIdInput = () => {
+                const isCustom = document.querySelector('input[name="cfg-sheet-mode"]:checked').value === "custom";
+                $("cfg-sheet-id-container").style.display = isCustom ? "block" : "none";
+            };
+            document.querySelectorAll('input[name="cfg-sheet-mode"]').forEach(r => {
+                r.addEventListener("change", toggleSheetIdInput);
+            });
+
             $("cfg-save-btn").addEventListener("click", async () => {
                 const clientId = $("cfg-client").value.trim();
                 const apiKey = $("cfg-key").value.trim();
+                const sheetMode = document.querySelector('input[name="cfg-sheet-mode"]:checked').value;
+                const spreadsheetId = sheetMode === "custom" ? $("cfg-sheet-id").value.trim() : "";
+
                 if (!clientId || !apiKey) return toast("All fields required", "fail");
+                if (sheetMode === "custom" && !spreadsheetId) return toast("Spreadsheet ID required", "fail");
 
                 $("cfg-save-btn").disabled = true;
                 $("cfg-save-btn").textContent = "Connecting...";
                 try {
                     await initGoogle(clientId, apiKey);
-                    saveConfig({ clientId, apiKey });
+                    saveConfig({ clientId, apiKey, spreadsheetId });
                     $("setup-phase-a").style.display = "none";
                     $("setup-phase-b").style.display = "block";
                     showScreen("screen-login");

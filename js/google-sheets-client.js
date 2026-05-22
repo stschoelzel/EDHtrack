@@ -9,14 +9,15 @@ const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googlea
 export function loadConfig() {
     try {
         const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return { clientId: "", apiKey: "" };
+        if (!raw) return { clientId: "", apiKey: "", spreadsheetId: "" };
         const parsed = JSON.parse(raw);
         return {
             clientId: String(parsed?.clientId ?? "").trim(),
             apiKey: String(parsed?.apiKey ?? "").trim(),
+            spreadsheetId: String(parsed?.spreadsheetId ?? "").trim(),
         };
     } catch {
-        return { clientId: "", apiKey: "" };
+        return { clientId: "", apiKey: "", spreadsheetId: "" };
     }
 }
 
@@ -24,6 +25,7 @@ export function saveConfig(config) {
     const nextConfig = {
         clientId: String(config?.clientId ?? "").trim(),
         apiKey: String(config?.apiKey ?? "").trim(),
+        spreadsheetId: String(config?.spreadsheetId ?? "").trim(),
     };
     localStorage.setItem(LS_KEY, JSON.stringify(nextConfig));
     return nextConfig;
@@ -31,6 +33,7 @@ export function saveConfig(config) {
 
 export function clearConfig() {
     localStorage.removeItem(LS_KEY);
+    localStorage.removeItem("edhtrack_spreadsheet_id");
 }
 
 export function resolveAppUrl(path) {
@@ -76,7 +79,7 @@ export async function initGoogle(clientId, apiKey) {
             gapi.client.setToken(token);
             sessionContext = { role: 'admin', user: { id: 'google-user' } };
             
-            const storedSheetId = sessionStorage.getItem("edhtrack.spreadsheetId.v3");
+            const storedSheetId = sessionStorage.getItem("edhtrack.spreadsheetId.v3") || localStorage.getItem("edhtrack_spreadsheet_id");
             if (storedSheetId) {
                 spreadsheetId = storedSheetId;
             }
@@ -151,6 +154,26 @@ export async function checkSession({ redirectTo = resolveAppUrl("index.html") } 
 }
 
 async function checkAndInitializeSpreadsheet() {
+    // 1. Prüfen, ob bereits eine ID im lokalen Speicher dieses Browsers hinterlegt ist
+    let storedId = localStorage.getItem("edhtrack_spreadsheet_id");
+    
+    if (storedId) {
+        spreadsheetId = storedId;
+        console.log("Verwendung der gespeicherten Spreadsheet ID:", spreadsheetId);
+        return;
+    }
+
+    // 2. Prüfen, ob eine Spreadsheet-ID in der App-Konfiguration hinterlegt wurde
+    const cfg = loadConfig();
+    if (cfg.spreadsheetId) {
+        spreadsheetId = cfg.spreadsheetId;
+        localStorage.setItem("edhtrack_spreadsheet_id", spreadsheetId);
+        console.log("Verwendung der Spreadsheet ID aus der Konfiguration:", spreadsheetId);
+        return;
+    }
+
+    // 3. Keine ID vorkonfiguriert -> Standard-Logik: Suche oder Neuerstellung im eigenen Drive
+    console.log("Suche oder erstelle neue Tabelle 'EDHtrack_Data' im Drive des Nutzers...");
     let response;
     try {
         response = await gapi.client.drive.files.list({
@@ -166,7 +189,7 @@ async function checkAndInitializeSpreadsheet() {
     if (files && files.length > 0) {
         spreadsheetId = files[0].id;
     } else {
-        // Create the spreadsheet
+        // Erstelle eine neue Tabelle, falls im eigenen Drive noch nichts existiert
         const createResponse = await gapi.client.sheets.spreadsheets.create({
             resource: {
                 properties: { title: 'EDHtrack_Data' },
@@ -181,7 +204,7 @@ async function checkAndInitializeSpreadsheet() {
         });
         spreadsheetId = createResponse.result.spreadsheetId;
 
-        // Initialize headers
+        // Header-Initialisierung
         const headers = {
             'Matches': ['id', 'played_at', 'participants', 'winner', 'is_draw', 'turn', 'win_condition', 'game_type', 'created_at'],
             'Players': ['id', 'name', 'created_at'],
@@ -203,6 +226,9 @@ async function checkAndInitializeSpreadsheet() {
             }
         });
     }
+    
+    // Die neu gefundene/erstellte ID für die Zukunft im LocalStorage merken
+    localStorage.setItem("edhtrack_spreadsheet_id", spreadsheetId);
 }
 
 function uuidv4() {
