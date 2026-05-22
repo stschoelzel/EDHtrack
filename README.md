@@ -54,32 +54,38 @@ Gehe zu **APIs & Services > OAuth consent screen**:
 * Klicke auf **Save and Continue** und dann zurück zum Dashboard.
 
 ### 5. Credentials (Zugangsdaten) erstellen
-Gehe zu **APIs & Services > Credentials**.
+Gehe im linken Menü zu **APIs & Services > Credentials** (APIs & Dienste > Voranmeldeinformationen / Anmeldedaten).
 
-#### API Key erstellen:
-* Klicke auf **Create Credentials > API key**.
-* Kopiere den generierten API Key (du brauchst ihn später im Tracker).
+#### API-Schlüssel (API Key) erstellen:
+1. Klicke oben auf **Create Credentials** (Anmeldedaten erstellen) > **API key** (API-Schlüssel).
+2. Kopiere den generierten API-Schlüssel. 
+   *(In der Google Cloud Console in der Tabelle unter „API Keys“ als **API key** bzw. **Schlüssel** aufgeführt).*
+3. Du benötigst diesen Wert später in der App im Feld **Google API Key**.
 
-#### OAuth Client ID erstellen:
-* Klicke auf **Create Credentials > OAuth client ID**.
-* Wähle als Application type **Web application**.
-* Name: z.B. `EDHtrack`
-* **Authorized JavaScript origins**: Trage die URL ein, unter der dein Tracker gehostet wird, z.B. `https://<dein-username>.github.io` und `http://localhost:8000` (für lokales Testen).
-* **Authorized redirect URIs**: Trage die genaue URL zu deinem Tracker ein, z.B. `https://<dein-username>.github.io/<repo-name>/` (und `http://localhost:8000/` für lokal).
-* Klicke auf **Create**.
-* Kopiere die generierte **Client ID**.
+#### OAuth-Client-ID (Client ID) erstellen:
+1. Klicke oben auf **Create Credentials** (Anmeldedaten erstellen) > **OAuth client ID** (OAuth-Client-ID).
+2. Wähle als Application type (Anwendungstyp) **Web application** (Webanwendung).
+3. Name: z.B. `EDHtrack`
+4. **Authorized JavaScript origins** (Autorisierte JavaScript-Herkunftsdaten): Klicke auf *Add URI* und trage die Haupt-URL deines Trackers ein, z.B. `https://<dein-username>.github.io` und `http://localhost:8000` (für lokales Testen).
+5. **Authorized redirect URIs** (Autorisierte Weiterleitungs-URIs): Klicke auf *Add URI* und trage die genaue URL zur Tracker-Startseite ein, z.B. `https://<dein-username>.github.io/<repo-name>/` (und `http://localhost:8000/` für lokales Testen).
+6. Klicke auf **Create** (Erstellen).
+7. Kopiere die generierte **Client ID** (Client-ID).
+   *(In der Google Cloud Console in der Tabelle unter „OAuth 2.0 Client IDs“ in der Spalte **Client ID** / **Client-ID** aufgeführt, z.B. `1077937717020-...apps.googleusercontent.com`).*
+8. Du benötigst diesen Wert später in der App im Feld **Google Client ID**.
 
 ### 6. GitHub Pages aktivieren
 In deinem GitHub Repo → **Settings** → **Pages** → Source: **Deploy from a branch** → `main`, `/ (root)` → Save.
 Nach ~1 Minute ist die Seite live unter `https://<dein-username>.github.io/<repo-name>/`.
 
 ### 7. App verbinden
-* Öffne deine Page-URL.
-* Trage die generierte **Google Client ID** und den **Google API Key** ein.
+* Öffne die Page-URL deines fertig eingerichteten Trackers.
+* Trage die kopierten Zugangsdaten in die Felder ein:
+  * **Google Client ID**: Trage hier die kopierte **Client ID** (endet meist auf `.apps.googleusercontent.com`) ein.
+  * **Google API Key**: Trage hier den kopierten **API Key** (API-Schlüssel) ein.
 * Klicke auf **Connect**.
-* Im zweiten Schritt, klicke auf **Login mit Google** und melde dich an.
+* Im zweiten Schritt (Phase 2: Self Authentication), klicke auf **Login mit Google** und melde dich mit deinem Google-Account an.
 
-Beim ersten Login wird automatisch das Sheet `EDHtrack_Data` in deinem Drive erstellt und mit den nötigen Tabellen (`Matches`, `Players`, `Decks`, `Game_Types`, `Win_Conditions`) initialisiert.
+Beim ersten erfolgreichen Login wird automatisch das Sheet `EDHtrack_Data` in deinem Drive erstellt und mit den nötigen Tabellen (`Matches`, `Players`, `Decks`, `Game_Types`, `Win_Conditions`) initialisiert.
 
 ## Schema Reference
 
